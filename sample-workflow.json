@@ -1,0 +1,50 @@
+{
+	"name": "Sample Workflow",
+	"nodes": [
+		{
+			"parameters": {},
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [250, 300],
+			"id": "sample-trigger-node",
+			"name": "When clicking 'Execute workflow'"
+		},
+		{
+			"parameters": {
+				"values": {
+					"string": [
+						{
+							"name": "message",
+							"value": "Hello from n8n!"
+						}
+					]
+				}
+			},
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.3,
+			"position": [450, 300],
+			"id": "sample-set-node",
+			"name": "Set"
+		}
+	],
+	"connections": {
+		"When clicking 'Execute workflow'": {
+			"main": [
+				[
+					{
+						"node": "Set",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"active": false,
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"id": "sample-workflow-id",
+	"createdAt": "2024-01-01T00:00:00.000Z",
+	"updatedAt": "2024-01-01T00:00:00.000Z"
+}
