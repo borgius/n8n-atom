@@ -33,7 +33,7 @@ export class NodesConfig {
 	 * @example '["n8n-nodes-base.hackerNews"]'
 	 */
 	@Env('NODES_EXCLUDE')
-	exclude: JsonStringArray = ['n8n-nodes-base.executeCommand', 'n8n-nodes-base.localFileTrigger'];
+	exclude: JsonStringArray = [];
 
 	/** Node type to use as error trigger */
 	@Env('NODES_ERROR_TRIGGER_TYPE')
