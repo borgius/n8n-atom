@@ -145,5 +145,10 @@
       "@lezer/highlight": "patches/@lezer__highlight.patch",
       "v-code-diff": "patches/v-code-diff.patch"
     }
+  },
+  "volta": {
+    "node": "22.17.1",
+    "yarn": "1.19.2",
+    "npm": "10.9.2"
   }
 }
