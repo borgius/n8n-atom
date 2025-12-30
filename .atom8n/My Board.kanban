@@ -35,7 +35,7 @@
       "tasks": [
         {
           "id": "task_f4zduc_mjs9rr94",
-          "title": "Git Merge from upstream",
+          "title": "Git pull/merge from upstream",
           "description": "- keep in mind to the keep the core features when resolve conflict\n- Auto resolve conflict yourself",
           "priority": "MEDIUM",
           "order": 0,
