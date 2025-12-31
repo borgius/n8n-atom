@@ -36,7 +36,7 @@ export type RootStoreState = {
 
 export const useRootStore = defineStore(STORES.ROOT, () => {
 	const state = ref<RootStoreState>({
-		baseUrl: VUE_APP_URL_BASE_API ?? window.BASE_PATH,
+		baseUrl: VUE_APP_URL_BASE_API ?? window.__API_BASE_URL__ ?? window.BASE_PATH,
 		restEndpoint: getConfigFromMetaTag('rest-endpoint') ?? 'rest',
 		defaultLocale: 'en',
 		endpointForm: 'form',

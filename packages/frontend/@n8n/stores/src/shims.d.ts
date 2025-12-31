@@ -15,5 +15,6 @@ declare global {
 	interface Window {
 		BASE_PATH: string;
 		REST_ENDPOINT: string;
+		__API_BASE_URL__: string;
 	}
 }
