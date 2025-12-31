@@ -7,7 +7,7 @@ import svgLoader from 'vite-svg-loader';
 import istanbul from 'vite-plugin-istanbul';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { codecovVitePlugin } from '@codecov/vite-plugin';
-import { cpSync, existsSync, mkdirSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync } from 'fs';
 
 import { vitestConfig } from '@n8n/vitest-config/frontend';
 import icons from 'unplugin-icons/vite';
@@ -249,8 +249,6 @@ const plugins: UserConfig['plugins'] = [
 				};
 
 				try {
-					// Import needed fs functions if not available in scope (handled by import updates)
-					const { readdirSync, readFileSync, writeFileSync, statSync } = require('fs');
 					patchFiles(atomVscodeDistDir);
 					console.log(`✓ Patched files in ${atomVscodeDistDir}`);
 				} catch (e) {
