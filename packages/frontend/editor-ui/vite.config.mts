@@ -291,6 +291,7 @@ export default mergeConfig(
 			minify: !!release,
 			sourcemap: !!release,
 			target,
+			cssCodeSplit: false,
 		},
 		optimizeDeps: {
 			esbuildOptions: {
