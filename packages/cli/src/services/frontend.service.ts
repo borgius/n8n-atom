@@ -229,7 +229,8 @@ export class FrontendService {
 			defaultLocale: this.globalConfig.defaultLocale,
 			userManagement: {
 				quota: this.license.getUsersLimit(),
-				showSetupOnFirstLoad: !(await this.ownershipService.hasInstanceOwner()),
+				// AUTH REMOVED: Never show setup page since authentication is disabled
+				showSetupOnFirstLoad: false,
 				smtpSetup: this.mailer.isEmailSetUp,
 				authenticationMethod: getCurrentAuthenticationMethod(),
 			},
@@ -392,7 +393,8 @@ export class FrontendService {
 		Object.assign(this.settings.userManagement, {
 			quota: this.license.getUsersLimit(),
 			authenticationMethod: getCurrentAuthenticationMethod(),
-			showSetupOnFirstLoad: !(await this.ownershipService.hasInstanceOwner()),
+			// AUTH REMOVED: Never show setup page since authentication is disabled
+			showSetupOnFirstLoad: false,
 		});
 
 		let dismissedBanners: string[] = [];

@@ -970,16 +970,12 @@ router.beforeEach(async (to: RouteLocationNormalized, from, next) => {
 		await initializeAuthenticatedFeatures(undefined, to.name as string);
 
 		/**
-		 * Redirect to setup page. User should be redirected to this only once
+		 * AUTH REMOVED: Skip setup page redirect - authentication is disabled
+		 * The setup page is no longer needed as we auto-authenticate with owner user
 		 */
-
-		const settingsStore = useSettingsStore();
-		if (settingsStore.showSetupPage) {
-			if (to.name === VIEWS.SETUP) {
-				return next();
-			}
-
-			return next({ name: VIEWS.SETUP });
+		// Redirect setup page to homepage since auth is removed
+		if (to.name === VIEWS.SETUP) {
+			return next({ name: VIEWS.HOMEPAGE });
 		}
 
 		/**

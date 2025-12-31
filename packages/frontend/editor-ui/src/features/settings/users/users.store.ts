@@ -160,6 +160,22 @@ export const useUsersStore = defineStore(STORES.USERS, () => {
 			}
 		}
 	};
+	// AUTH REMOVED: Create a default user if API fails
+	const createDefaultUser = async () => {
+		const defaultUser: CurrentUserResponse = {
+			id: 'default-owner',
+			email: 'owner@localhost',
+			firstName: 'Owner',
+			lastName: 'User',
+			role: ROLE.Owner,
+			isOwner: true,
+			isPending: false,
+			mfaEnabled: false,
+			createdAt: new Date().toISOString(),
+			globalScopes: [],
+		};
+		await setCurrentUser(defaultUser);
+	};
 
 	const loginWithCookie = async () => {
 		const user = await usersApi.loginCurrentUser(rootStore.restApiContext);
@@ -178,7 +194,12 @@ export const useUsersStore = defineStore(STORES.USERS, () => {
 		try {
 			await loginWithCookie();
 			initialized.value = true;
-		} catch (e) {}
+		} catch (e) {
+			// AUTH REMOVED: If login fails, create a default user so the app works
+			console.warn('Failed to login with cookie, using default user');
+			await createDefaultUser();
+			initialized.value = true;
+		}
 	};
 
 	const unsetCurrentUser = () => {

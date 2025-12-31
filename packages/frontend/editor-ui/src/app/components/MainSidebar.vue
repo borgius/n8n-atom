@@ -314,9 +314,7 @@ const handleSelect = (key: string) => {
 	}
 };
 
-const onLogout = () => {
-	void router.push({ name: VIEWS.SIGNOUT });
-};
+// AUTH REMOVED: Removed logout option since authentication is disabled
 
 useKeybindings({
 	ctrl_alt_o: () => handleSelect('about'),
@@ -352,12 +350,7 @@ useKeybindings({
 					:collapsed="isCollapsed"
 					:plan-name="cloudPlanStore.currentPlanData?.displayName"
 				/>
-				<BottomMenu
-					:items="visibleMenuItems"
-					:is-collapsed="isCollapsed"
-					@logout="onLogout"
-					@select="handleSelect"
-				/>
+				<BottomMenu :items="visibleMenuItems" :is-collapsed="isCollapsed" @select="handleSelect" />
 			</div>
 		</N8nScrollArea>
 		<MainSidebarSourceControl :is-collapsed="isCollapsed" />
