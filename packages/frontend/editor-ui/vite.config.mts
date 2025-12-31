@@ -17,7 +17,7 @@ import browserslist from 'browserslist';
 import { isLocaleFile, sendLocaleUpdate } from './vite/i18n-locales-hmr-helpers';
 import { nodePopularityPlugin } from './vite/vite-plugin-node-popularity.mjs';
 
-const publicPath = process.env.VUE_APP_PUBLIC_PATH || '/';
+const publicPath = process.env.VUE_APP_PUBLIC_PATH || './';
 
 const { NODE_ENV } = process.env;
 
@@ -90,14 +90,14 @@ const plugins: UserConfig['plugins'] = [
 	// Add istanbul coverage plugin for E2E tests
 	...(process.env.BUILD_WITH_COVERAGE === 'true'
 		? [
-				istanbul({
-					include: 'src/**/*',
-					exclude: ['node_modules', 'tests/', 'dist/'],
-					extension: ['.js', '.ts', '.vue'],
-					forceBuildInstrument: true,
-					requireEnv: false,
-				}),
-			]
+			istanbul({
+				include: 'src/**/*',
+				exclude: ['node_modules', 'tests/', 'dist/'],
+				extension: ['.js', '.ts', '.vue'],
+				forceBuildInstrument: true,
+				requireEnv: false,
+			}),
+		]
 		: []),
 	viteStaticCopy({
 		targets: [
@@ -131,10 +131,10 @@ const plugins: UserConfig['plugins'] = [
 	}),
 	...(release
 		? [
-				legacy({
-					modernTargets: browsers,
-				}),
-			]
+			legacy({
+				modernTargets: browsers,
+			}),
+		]
 		: []),
 	{
 		name: 'Insert config script',
@@ -143,9 +143,9 @@ const plugins: UserConfig['plugins'] = [
 			// will replace it with the actual config script in cli/src/commands/start.ts.
 			return ctx.server
 				? html
-						.replace('%CONFIG_TAGS%', '')
-						.replaceAll('/{{BASE_PATH}}', '//localhost:5678')
-						.replaceAll('/{{REST_ENDPOINT}}', '/rest')
+					.replace('%CONFIG_TAGS%', '')
+					.replaceAll('/{{BASE_PATH}}', '//localhost:5678')
+					.replaceAll('/{{REST_ENDPOINT}}', '/rest')
 				: html;
 		},
 	},
@@ -176,44 +176,87 @@ const plugins: UserConfig['plugins'] = [
 	},
 	...(release
 		? [
-				sentryVitePlugin({
-					org: 'n8nio',
-					project: 'instance-frontend',
-					authToken: process.env.SENTRY_AUTH_TOKEN,
-					telemetry: false,
-					release: {
-						name: `n8n@${release}`,
-					},
-				}),
-			]
+			sentryVitePlugin({
+				org: 'n8nio',
+				project: 'instance-frontend',
+				authToken: process.env.SENTRY_AUTH_TOKEN,
+				telemetry: false,
+				release: {
+					name: `n8n@${release}`,
+				},
+			}),
+		]
 		: []),
 	...(process.env.CODECOV_TOKEN
 		? [
-				codecovVitePlugin({
-					enableBundleAnalysis: true,
-					bundleName: 'editor-ui',
-					uploadToken: process.env.CODECOV_TOKEN,
-					debug: true,
-				}),
-			]
+			codecovVitePlugin({
+				enableBundleAnalysis: true,
+				bundleName: 'editor-ui',
+				uploadToken: process.env.CODECOV_TOKEN,
+				debug: true,
+			}),
+		]
 		: []),
 	{
 		name: 'copy-to-atom-vscode',
 		closeBundle() {
 			// Only copy during release builds
 			// if (release) {
-				const distDir = resolve(__dirname, 'dist');
-				const indexHtml = resolve(distDir, 'index.html');
-				// Only copy if build was successful (index.html exists)
-				if (existsSync(distDir) && existsSync(indexHtml)) {
-					// Ensure target directory exists
-					if (!existsSync(atomVscodeDistDir)) {
-						mkdirSync(atomVscodeDistDir, { recursive: true });
-					}
-					// Copy dist folder to n8n-atom-vscode/dist/editor-ui
-					cpSync(distDir, atomVscodeDistDir, { recursive: true, force: true });
-					console.log(`✓ Copied release build output to ${atomVscodeDistDir}`);
+			const distDir = resolve(__dirname, 'dist');
+			const indexHtml = resolve(distDir, 'index.html');
+			// Only copy if build was successful (index.html exists)
+			if (existsSync(distDir) && existsSync(indexHtml)) {
+				// Ensure target directory exists
+				if (!existsSync(atomVscodeDistDir)) {
+					mkdirSync(atomVscodeDistDir, { recursive: true });
 				}
+				// Copy dist folder to n8n-atom-vscode/dist/editor-ui
+				cpSync(distDir, atomVscodeDistDir, { recursive: true, force: true });
+				console.log(`✓ Copied release build output to ${atomVscodeDistDir}`);
+
+				// Patch files to remove {{BASE_PATH}}
+				const patchFiles = (dir: string) => {
+					const files = readdirSync(dir);
+					for (const file of files) {
+						const filePath = resolve(dir, file);
+						if (statSync(filePath).isDirectory()) {
+							patchFiles(filePath);
+						} else if (file.endsWith('.js') || file.endsWith('.css') || file.endsWith('.html')) {
+							let content = readFileSync(filePath, 'utf8');
+							let originalContent = content;
+
+							// Replace /{{BASE_PATH}}/ or /%7B%7BBASE_PATH%7D%7D/ with ./ (or empty string for root paths)
+							// Handle URL encoded version first
+							console.log('Patching ' + file + '...');
+							content = content.replace(/\/.*?%7B%7BBASE_PATH%7D%7D\/?/g, '');
+
+							// Handle standard version
+							content = content.replace(/\/\{\{BASE_PATH\}\}\/?/g, '');
+
+							// Handle "window.BASE_PATH = '/{{BASE_PATH}}/'" specifically to make it empty string
+							content = content.replace(/['"]\/\{\{BASE_PATH\}\}\/['"]/g, "''");
+
+							// Clean up any remaining double slashes if any
+							content = content.replace(/src="\/\//g, 'src="/');
+							content = content.replace(/href="\/\//g, 'href="/');
+
+							if (content !== originalContent) {
+								console.log(`Patched ${file}`);
+								writeFileSync(filePath, content);
+							}
+						}
+					}
+				};
+
+				try {
+					// Import needed fs functions if not available in scope (handled by import updates)
+					const { readdirSync, readFileSync, writeFileSync, statSync } = require('fs');
+					patchFiles(atomVscodeDistDir);
+					console.log(`✓ Patched files in ${atomVscodeDistDir}`);
+				} catch (e) {
+					console.error('Failed to patch files:', e);
+				}
+			}
 			// }
 		},
 	},

@@ -11,6 +11,7 @@ import isEmpty from 'lodash/isEmpty';
 import { InstanceSettings, installGlobalProxyAgent } from 'n8n-core';
 import { jsonParse } from 'n8n-workflow';
 import { resolve } from 'path';
+import { readFileSync } from 'fs';
 
 import { AbstractServer } from '@/abstract-server';
 import { AuthService } from '@/auth/auth.service';
@@ -435,21 +436,64 @@ export class Server extends AbstractServer {
 				...this.globalConfig.endpoints.additionalNonUIRoutes.split(':'),
 			].filter((u) => !!u);
 			const nonUIRoutesRegex = new RegExp(`^/(${nonUIRoutes.join('|')})/?.*$`);
+			// Static file extensions that should never be served as HTML
+			const staticFileExtensions = [
+				'.js',
+				'.css',
+				'.wasm',
+				'.json',
+				'.png',
+				'.jpg',
+				'.jpeg',
+				'.gif',
+				'.svg',
+				'.ico',
+				'.woff',
+				'.woff2',
+				'.ttf',
+				'.eot',
+				'.map',
+			];
 			const historyApiHandler: express.RequestHandler = (req, res, next) => {
 				const {
 					method,
 					headers: { accept },
 				} = req;
+				// Skip history API handler for static files
+				const isStaticFile =
+					staticFileExtensions.some((ext) => req.path.endsWith(ext)) ||
+					req.path.includes('/assets/') ||
+					req.path.includes('/static/') ||
+					nonUIRoutesRegex.test(req.path);
+
 				if (
 					method === 'GET' &&
+					!isStaticFile &&
 					accept &&
-					(accept.includes('text/html') || accept.includes('*/*')) &&
-					!req.path.endsWith('.wasm') &&
-					!nonUIRoutesRegex.test(req.path)
+					(accept.includes('text/html') || accept.includes('*/*'))
 				) {
 					res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, proxy-revalidate');
 					securityHeadersMiddleware(req, res, () => {
-						res.sendFile('index.html', { root: staticCacheDir, maxAge: 0, lastModified: false });
+						try {
+							// Read and inject base tag to ensure relative asset paths resolve correctly
+							const indexPath = resolve(staticCacheDir, 'index.html');
+							let html = readFileSync(indexPath, 'utf8');
+
+							// Inject base tag if not already present
+							if (!html.includes('<base')) {
+								// Insert base tag right after <head> tag
+								html = html.replace(
+									'<head>',
+									`<head><base href="${this.globalConfig.path || '/'}">`,
+								);
+							}
+
+							res.setHeader('Content-Type', 'text/html');
+							res.send(html);
+						} catch (error) {
+							// Fallback to sendFile if reading fails
+							res.sendFile('index.html', { root: staticCacheDir, maxAge: 0, lastModified: false });
+						}
 					});
 				} else {
 					next();
