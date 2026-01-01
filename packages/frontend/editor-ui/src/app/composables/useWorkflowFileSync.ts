@@ -93,8 +93,13 @@ export function useWorkflowFileSync() {
 	 * Only works when running inside a VS Code webview
 	 * @param workflowData - The workflow data to sync
 	 * @param shouldSave - If true, actually save the file; if false, just apply edit
+	 * @param executionData - Optional execution data (runData) to save to .data file
 	 */
-	function syncWorkflowToFile(workflowData: WorkflowFileData, shouldSave = false): void {
+	function syncWorkflowToFile(
+		workflowData: WorkflowFileData,
+		shouldSave = false,
+		executionData?: any,
+	): void {
 		if (!isVSCodeWebview()) {
 			return;
 		}
@@ -111,12 +116,27 @@ export function useWorkflowFileSync() {
 			// Serialize the workflow data to ensure it's postMessage-safe
 			const serializedWorkflow = serializeWorkflowData(workflowData);
 
+			// Serialize execution data if provided
+			let serializedExecutionData: any = undefined;
+			if (executionData) {
+				try {
+					serializedExecutionData = JSON.parse(JSON.stringify(executionData));
+				} catch (error) {
+					console.warn('[WorkflowFileSync] Failed to serialize execution data:', error);
+				}
+			}
+
 			// Create the message object
-			const message = {
+			const message: any = {
 				type: 'workflowUpdate',
 				workflow: serializedWorkflow,
 				shouldSave, // Flag to indicate if this should save the file or just apply edit
 			};
+
+			// Include execution data if provided
+			if (serializedExecutionData) {
+				message.executionData = serializedExecutionData;
+			}
 
 			// Verify the message can be cloned before sending
 			try {
@@ -158,8 +178,13 @@ export function useWorkflowFileSync() {
 	 * Sync workflow from IWorkflowDb type
 	 * @param workflow - The workflow to sync
 	 * @param shouldSave - If true, actually save the file; if false, just apply edit
+	 * @param executionData - Optional execution data (runData) to save to .data file
 	 */
-	function syncFromWorkflowDb(workflow: IWorkflowDb, shouldSave = false): void {
+	function syncFromWorkflowDb(
+		workflow: IWorkflowDb,
+		shouldSave = false,
+		executionData?: any,
+	): void {
 		syncWorkflowToFile(
 			{
 				name: workflow.name,
@@ -169,6 +194,7 @@ export function useWorkflowFileSync() {
 				pinData: workflow.pinData,
 			},
 			shouldSave,
+			executionData,
 		);
 	}
 

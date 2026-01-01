@@ -15,6 +15,7 @@ import { useRootStore } from '@n8n/stores/useRootStore';
 import { isFullExecutionResponse } from '@/app/utils/typeGuards';
 import { sanitizeHtml } from '@/app/utils/htmlUtils';
 import { usePageRedirectionHelper } from '@/app/composables/usePageRedirectionHelper';
+import { useWorkflowFileSync } from '@/app/composables/useWorkflowFileSync';
 
 export const useExecutionDebugging = () => {
 	const telemetry = useTelemetry();
@@ -144,6 +145,17 @@ export const useExecutionDebugging = () => {
 			override_pinned_data: pinnableNodes.length === pinnings,
 			all_exec_data_imported: missingNodeNames.length === 0,
 		});
+
+		// Sync workflow to file and save execution data to .data file
+		// This is called when "copy to editor" is clicked
+		const workflowFileSync = useWorkflowFileSync();
+		const currentWorkflowData = workflowFileSync.getCurrentWorkflowData();
+		if (currentWorkflowData) {
+			// Extract runData from execution for saving to .data file
+			const executionRunData = execution.data?.resultData?.runData;
+			// Sync workflow to .n8n file and execution data to .data file
+			workflowFileSync.syncWorkflowToFile(currentWorkflowData, true, executionRunData);
+		}
 	};
 
 	const handleDebugLinkClick = (event: Event): void => {
