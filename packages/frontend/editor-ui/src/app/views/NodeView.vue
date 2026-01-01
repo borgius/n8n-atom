@@ -1576,6 +1576,21 @@ async function onPostMessageReceived(messageEvent: MessageEvent) {
 
 				const result = await syncAndNavigate(workflowData);
 
+				// Refresh the workflow data in the UI by fetching and initializing workspace
+				try {
+					const updatedWorkflow = await workflowsStore.fetchWorkflow(result.workflow.id);
+					if (updatedWorkflow.checksum) {
+						// Check if we're currently viewing this workflow
+						if (workflowsStore.workflowId === result.workflow.id) {
+							await initializeWorkspace(updatedWorkflow);
+							console.log('[NodeView] Workflow UI refreshed');
+						}
+					}
+				} catch (refreshError) {
+					console.warn('[NodeView] Failed to refresh workflow UI:', refreshError);
+					// Don't throw - sync was successful, refresh is just a nice-to-have
+				}
+
 				// Notify VS Code that sync completed
 				if (window.parent) {
 					window.parent.postMessage(

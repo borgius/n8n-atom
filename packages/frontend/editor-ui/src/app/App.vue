@@ -34,6 +34,8 @@ import { useCommandBar } from '@/features/shared/commandBar/composables/useComma
 import { hasPermission } from '@/app/utils/rbac/permissions';
 import { useWorkflowSync } from '@/app/composables/useWorkflowSync';
 import { useToast } from '@/app/composables/useToast';
+import { useCanvasOperations } from '@/app/composables/useCanvasOperations';
+import { useWorkflowsStore } from '@/app/stores/workflows.store';
 
 const route = useRoute();
 const rootStore = useRootStore();
@@ -94,6 +96,8 @@ async function handleVSCodeWorkflowSync(messageEvent: MessageEvent) {
 		console.log('[App.vue] Received workflowSync message');
 		try {
 			const { syncWorkflow, navigateToWorkflow } = useWorkflowSync();
+			const { initializeWorkspace } = useCanvasOperations();
+			const workflowsStore = useWorkflowsStore();
 			const workflowData = messageEvent.data.workflow;
 
 			if (!workflowData || !workflowData.name) {
@@ -105,6 +109,21 @@ async function handleVSCodeWorkflowSync(messageEvent: MessageEvent) {
 
 			// Navigate to the workflow
 			await navigateToWorkflow(result.workflow.id);
+
+			// Refresh the workflow data in the UI by fetching and initializing workspace
+			try {
+				const updatedWorkflow = await workflowsStore.fetchWorkflow(result.workflow.id);
+				if (updatedWorkflow.checksum) {
+					// Check if we're currently viewing this workflow
+					if (workflowsStore.workflowId === result.workflow.id) {
+						await initializeWorkspace(updatedWorkflow);
+						console.log('[App.vue] Workflow UI refreshed');
+					}
+				}
+			} catch (refreshError) {
+				console.warn('[App.vue] Failed to refresh workflow UI:', refreshError);
+				// Don't throw - sync was successful, refresh is just a nice-to-have
+			}
 
 			// Notify VS Code that sync completed
 			if (window.parent) {
