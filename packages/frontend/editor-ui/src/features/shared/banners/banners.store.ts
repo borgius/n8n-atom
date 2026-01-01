@@ -30,6 +30,12 @@ export const useBannersStore = defineStore(STORES.BANNERS, () => {
 	};
 
 	async function fetchDynamicBanners() {
+		// Skip fetching dynamic banners in VS Code webview to avoid CORS errors
+		// External API calls to api.n8n.io are blocked by CORS in webview context
+		if (typeof window !== 'undefined' && window.location?.origin?.startsWith('vscode-webview:')) {
+			return [];
+		}
+
 		if (
 			!settingsStore.settings.dynamicBanners.endpoint ||
 			!settingsStore.settings.dynamicBanners.enabled
