@@ -5,6 +5,8 @@
 ```
 pnpm install && pnpm run build && pnpm run start
 ```
+<img width="2718" height="1618" alt="image" src="https://github.com/user-attachments/assets/8cc10306-e349-4cac-b5b7-e04cc9695ca0" />
+
 <img width="2114" height="1496" alt="image" src="https://github.com/user-attachments/assets/c48534d1-742f-4981-b5eb-557f610015d2" />
 
 
