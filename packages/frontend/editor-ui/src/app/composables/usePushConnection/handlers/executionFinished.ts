@@ -44,6 +44,7 @@ import {
 import type { useRouter } from 'vue-router';
 import { type WorkflowState } from '@/app/composables/useWorkflowState';
 import { useDocumentTitle } from '@/app/composables/useDocumentTitle';
+import { useWorkflowFileSync } from '@/app/composables/useWorkflowFileSync';
 
 export type SimplifiedExecution = Pick<
 	IExecutionResponse,
@@ -157,6 +158,20 @@ export async function executionFinished(
 	}
 
 	setRunExecutionData(execution, runExecutionData, options.workflowState);
+
+	// Save workflow and execution data to .n8n and .data files after execution is done
+	// This is only done when running inside a VS Code webview
+	const workflowFileSync = useWorkflowFileSync();
+	if (workflowFileSync.isVSCodeWebview()) {
+		const currentWorkflowData = workflowFileSync.getCurrentWorkflowData();
+		if (currentWorkflowData) {
+			// Extract runData from execution for saving to .data file
+			const executionRunData = execution.data?.resultData?.runData;
+			// Sync workflow to .n8n file and execution data to .data file
+			// shouldSave = true to actually save the files
+			workflowFileSync.syncWorkflowToFile(currentWorkflowData, true, executionRunData);
+		}
+	}
 
 	continueEvaluationLoop(execution, options);
 }
