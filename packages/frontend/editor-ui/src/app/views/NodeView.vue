@@ -138,6 +138,7 @@ import { useKeybindings } from '@/app/composables/useKeybindings';
 import { type ContextMenuAction } from '@/features/shared/contextMenu/composables/useContextMenuItems';
 import { useExperimentalNdvStore } from '@/features/workflows/canvas/experimental/experimentalNdv.store';
 import { useWorkflowState } from '@/app/composables/useWorkflowState';
+import { useWorkflowSync } from '@/app/composables/useWorkflowSync';
 import { useParentFolder } from '@/features/core/folders/composables/useParentFolder';
 
 import { N8nCallout, N8nCanvasThinkingPill } from '@n8n/design-system';
@@ -1554,11 +1555,74 @@ function emitPostMessageReady() {
 }
 
 async function onPostMessageReceived(messageEvent: MessageEvent) {
-	if (
-		!messageEvent ||
-		typeof messageEvent.data !== 'string' ||
-		!messageEvent.data?.includes?.('"command"')
-	) {
+	if (!messageEvent) {
+		return;
+	}
+
+	// Handle object-based messages from VS Code webview (type: 'workflowSync')
+	if (typeof messageEvent.data === 'object' && messageEvent.data !== null) {
+		if (messageEvent.data.type === 'workflowSync') {
+			// Handle workflow sync from VS Code extension
+			try {
+				const { syncAndNavigate } = useWorkflowSync();
+				const workflowData = messageEvent.data.workflow;
+
+				if (!workflowData || !workflowData.name) {
+					throw new Error('Invalid workflow data: missing name');
+				}
+
+				// Initialize data before syncing
+				await initializeData();
+
+				const result = await syncAndNavigate(workflowData);
+
+				// Notify VS Code that sync completed
+				if (window.parent) {
+					window.parent.postMessage(
+						JSON.stringify({
+							command: 'workflowSyncComplete',
+							workflowId: result.workflow.id,
+							workflowName: result.workflow.name,
+							action: result.action,
+						}),
+						'*',
+					);
+				}
+
+				// Show appropriate toast message
+				if (result.action === 'created') {
+					toast.showMessage({
+						title: 'Workflow Created',
+						message: `Created new workflow: ${result.workflow.name}`,
+						type: 'success',
+					});
+				} else if (result.action === 'updated') {
+					toast.showMessage({
+						title: 'Workflow Updated',
+						message: `Updated workflow: ${result.workflow.name}`,
+						type: 'success',
+					});
+				}
+			} catch (e) {
+				if (window.top) {
+					window.top.postMessage(
+						JSON.stringify({
+							command: 'error',
+							message: 'Failed to sync workflow',
+							error: (e as Error).message,
+						}),
+						'*',
+					);
+				}
+				toast.showError(e, 'Workflow Sync Error');
+			}
+		}
+		// Object-based messages handled, exit
+		return;
+	}
+
+	// Handle string-based messages (iframe communication)
+	if (typeof messageEvent.data !== 'string' || !messageEvent.data?.includes?.('"command"')) {
 		return;
 	}
 	try {

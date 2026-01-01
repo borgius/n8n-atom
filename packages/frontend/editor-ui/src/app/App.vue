@@ -32,6 +32,8 @@ import { useExposeCssVar } from '@/app/composables/useExposeCssVar';
 import { useFloatingUiOffsets } from '@/app/composables/useFloatingUiOffsets';
 import { useCommandBar } from '@/features/shared/commandBar/composables/useCommandBar';
 import { hasPermission } from '@/app/utils/rbac/permissions';
+import { useWorkflowSync } from '@/app/composables/useWorkflowSync';
+import { useToast } from '@/app/composables/useToast';
 
 const route = useRoute();
 const rootStore = useRootStore();
@@ -79,11 +81,81 @@ const chatPanelWidth = computed(() => chatPanelStore.width);
 
 useTelemetryContext({ ndv_source: computed(() => ndvStore.lastSetActiveNodeSource) });
 
+// Global message handler for VS Code workflowSync messages
+const toast = useToast();
+
+async function handleVSCodeWorkflowSync(messageEvent: MessageEvent) {
+	// Handle object-based messages from VS Code webview
+	if (
+		typeof messageEvent.data === 'object' &&
+		messageEvent.data !== null &&
+		messageEvent.data.type === 'workflowSync'
+	) {
+		console.log('[App.vue] Received workflowSync message');
+		try {
+			const { syncWorkflow, navigateToWorkflow } = useWorkflowSync();
+			const workflowData = messageEvent.data.workflow;
+
+			if (!workflowData || !workflowData.name) {
+				throw new Error('Invalid workflow data: missing name');
+			}
+
+			console.log('[App.vue] Syncing workflow:', workflowData.name);
+			const result = await syncWorkflow(workflowData);
+
+			// Navigate to the workflow
+			await navigateToWorkflow(result.workflow.id);
+
+			// Notify VS Code that sync completed
+			if (window.parent) {
+				window.parent.postMessage(
+					JSON.stringify({
+						command: 'workflowSyncComplete',
+						workflowId: result.workflow.id,
+						workflowName: result.workflow.name,
+						action: result.action,
+					}),
+					'*',
+				);
+			}
+
+			// Show appropriate toast message
+			if (result.action === 'created') {
+				toast.showMessage({
+					title: 'Workflow Created',
+					message: `Created new workflow: ${result.workflow.name}`,
+					type: 'success',
+				});
+			} else if (result.action === 'updated') {
+				toast.showMessage({
+					title: 'Workflow Updated',
+					message: `Updated workflow: ${result.workflow.name}`,
+					type: 'success',
+				});
+			}
+		} catch (e) {
+			console.error('[App.vue] Workflow sync error:', e);
+			if (window.top) {
+				window.top.postMessage(
+					JSON.stringify({
+						command: 'error',
+						message: 'Failed to sync workflow',
+						error: (e as Error).message,
+					}),
+					'*',
+				);
+			}
+			toast.showError(e, 'Workflow Sync Error');
+		}
+	}
+}
+
 onMounted(async () => {
 	setAppZIndexes();
 	logHiringBanner();
 	loading.value = false;
 	window.addEventListener('resize', updateGridWidth);
+	window.addEventListener('message', handleVSCodeWorkflowSync);
 	await updateGridWidth();
 });
 
@@ -95,6 +167,7 @@ watch(showCommandBar, (newVal) => {
 
 onBeforeUnmount(() => {
 	window.removeEventListener('resize', updateGridWidth);
+	window.removeEventListener('message', handleVSCodeWorkflowSync);
 });
 
 const logHiringBanner = () => {
