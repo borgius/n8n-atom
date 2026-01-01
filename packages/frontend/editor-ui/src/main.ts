@@ -46,6 +46,12 @@ app.use(GlobalComponentsPlugin);
 app.use(GlobalDirectivesPlugin);
 app.use(pinia);
 app.use(router);
+
+// Expose router globally for VS Code webview click interceptor
+// This allows internal navigation links to work correctly without opening new tabs
+if (typeof window !== 'undefined') {
+	(window as unknown as { __n8n_router__: typeof router }).__n8n_router__ = router;
+}
 app.use(i18nInstance);
 app.use(ChartJSPlugin);
 
