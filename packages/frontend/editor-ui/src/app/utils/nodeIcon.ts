@@ -103,7 +103,13 @@ const getNodeIconColor = (nodeType: IconNodeType): string | undefined => {
 	return typeof defaultColor === 'string' ? defaultColor : undefined;
 };
 
-const prefixBaseUrl = (url: string): string => useRootStore().baseUrl + url;
+const prefixBaseUrl = (url: string): string => {
+	const baseUrl = useRootStore().baseUrl;
+	// Normalize: remove trailing slash from base and leading slash from url
+	const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+	const normalizedUrl = url.startsWith('/') ? url.slice(1) : url;
+	return `${normalizedBase}/${normalizedUrl}`;
+};
 
 const getNodeBadgeIconSource = (nodeType: IconNodeType): BaseNodeIconSource | undefined => {
 	if (!('badgeIconUrl' in nodeType) || !nodeType.badgeIconUrl) return undefined;
