@@ -30,13 +30,13 @@
           window.vscode = vscode;
 					console.log('vscode loaded successfully:', vscode);
 					function handleMessage(event) {
-						console.log('Received message:', {
-							data: event.data,
-							type: event.type,
-							origin: event.origin,
-							source: event.source,
-							event: event
-						});
+						// console.log('Received message:', {
+						// 	data: event.data,
+						// 	type: event.type,
+						// 	origin: event.origin,
+						// 	source: event.source,
+						// 	event: event
+						// });
 					}
 					window.addEventListener('message', handleMessage);
       }
