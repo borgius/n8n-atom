@@ -13,6 +13,7 @@
     "build": "turbo run build",
     "build:n8n": "node scripts/build-n8n.mjs",
     "build:deploy": "node scripts/build-n8n.mjs",
+    "build:portable": "node scripts/build-n8n.mjs && node scripts/build-portable.mjs",
     "build:docker": "node scripts/build-n8n.mjs && node scripts/dockerize-n8n.mjs",
     "build:docker:coverage": "BUILD_WITH_COVERAGE=true node scripts/build-n8n.mjs && node scripts/dockerize-n8n.mjs",
     "build:docker:scan": "node scripts/build-n8n.mjs && node scripts/dockerize-n8n.mjs && node scripts/scan-n8n-image.mjs",
