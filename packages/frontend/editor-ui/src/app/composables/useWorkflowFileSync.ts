@@ -307,11 +307,42 @@ export function useWorkflowFileSync() {
 		);
 	}
 
+	/**
+	 * Request loading the .data file associated with the current workflow
+	 * Only works when running inside a VS Code webview
+	 */
+	function requestLoadDataFile(): void {
+		if (!isVSCodeWebview()) {
+			return;
+		}
+
+		// Get the VS Code API from the global window object (set in index.html)
+		const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } })
+			.vscode;
+		if (!vscode || typeof vscode.postMessage !== 'function') {
+			console.log('[WorkflowFileSync] VS Code API not available, skipping load data request');
+			return;
+		}
+
+		try {
+			const message = {
+				type: 'loadDataFile',
+			};
+
+			// Send message to VS Code extension via the VS Code API
+			vscode.postMessage(message);
+			console.log('[WorkflowFileSync] Sent load data file request to VS Code');
+		} catch (error) {
+			console.error('[WorkflowFileSync] Failed to send load data file request:', error);
+		}
+	}
+
 	return {
 		isVSCodeWebview,
 		syncWorkflowToFile,
 		syncFromWorkflowDb,
 		setupAutoSync,
 		getCurrentWorkflowData,
+		requestLoadDataFile,
 	};
 }

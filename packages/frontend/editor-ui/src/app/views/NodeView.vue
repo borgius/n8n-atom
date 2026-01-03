@@ -142,7 +142,7 @@ import { useWorkflowSync } from '@/app/composables/useWorkflowSync';
 import { useParentFolder } from '@/features/core/folders/composables/useParentFolder';
 import { useWorkflowFileSync } from '@/app/composables/useWorkflowFileSync';
 
-import { N8nCallout, N8nCanvasThinkingPill } from '@n8n/design-system';
+import { N8nButton, N8nCallout, N8nCanvasThinkingPill } from '@n8n/design-system';
 
 defineOptions({
 	name: 'NodeView',
@@ -258,8 +258,9 @@ const {
 	openWorkflowTemplateFromJSON,
 } = useCanvasOperations();
 const { extractWorkflow } = useWorkflowExtraction();
-const { applyExecutionData } = useExecutionDebugging();
+const { applyExecutionData, applyRunDataFromFile } = useExecutionDebugging();
 const { fetchAndSetParentFolder } = useParentFolder();
+const { requestLoadDataFile, isVSCodeWebview } = useWorkflowFileSync();
 
 useKeybindings({
 	ctrl_alt_o: () => uiStore.openModal(ABOUT_MODAL_KEY),
@@ -1406,6 +1407,19 @@ function removeExecutionOpenedEventBindings() {
 	canvasEventBus.off('open:execution', onExecutionOpenedWithWaitTill);
 }
 
+async function onLoadData() {
+	if (!isVSCodeWebview()) {
+		toast.showError(new Error('Load data is only available in VS Code'), 'Not available');
+		return;
+	}
+
+	try {
+		requestLoadDataFile();
+	} catch (error) {
+		toast.showError(error, 'Failed to load data');
+	}
+}
+
 async function onStopExecution() {
 	isStoppingExecution.value = true;
 	await stopCurrentExecution();
@@ -2200,6 +2214,16 @@ onBeforeUnmount(() => {
 					@execute="runEntireWorkflow('main')"
 					@select-trigger-node="workflowsStore.setSelectedTriggerNodeName"
 				/>
+				<N8nButton
+					v-if="isVSCodeWebview() && isRunWorkflowButtonVisible"
+					size="large"
+					type="secondary"
+					icon="folder-open"
+					data-test-id="load-data-button"
+					@click="onLoadData"
+				>
+					{{ i18n.baseText('nodeView.loadData.button') }}
+				</N8nButton>
 				<template v-if="containsChatTriggerNodes">
 					<CanvasChatButton
 						v-if="isLogsPanelOpen"

@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router';
 import { useI18n } from '@n8n/i18n';
 import { useMessage } from '@/app/composables/useMessage';
 import { useToast } from '@/app/composables/useToast';
-import { injectWorkflowState } from '@/app/composables/useWorkflowState';
+import { injectWorkflowState, useWorkflowState } from '@/app/composables/useWorkflowState';
 import { EnterpriseEditionFeature, MODAL_CONFIRM, VIEWS } from '@/app/constants';
 import { DEBUG_PAYWALL_MODAL_KEY } from '../executions.constants';
 import type { INodeUi } from '@/Interface';
@@ -16,6 +16,8 @@ import { isFullExecutionResponse } from '@/app/utils/typeGuards';
 import { sanitizeHtml } from '@/app/utils/htmlUtils';
 import { usePageRedirectionHelper } from '@/app/composables/usePageRedirectionHelper';
 import { useWorkflowFileSync } from '@/app/composables/useWorkflowFileSync';
+import { createRunExecutionData } from 'n8n-workflow';
+import type { IExecutionResponse } from '@/features/execution/executions/executions.types';
 
 export const useExecutionDebugging = () => {
 	const telemetry = useTelemetry();
@@ -25,7 +27,14 @@ export const useExecutionDebugging = () => {
 	const message = useMessage();
 	const toast = useToast();
 	const workflowsStore = useWorkflowsStore();
-	const workflowState = injectWorkflowState();
+	// Try to inject workflowState first (for component context), fallback to direct use
+	let workflowState: ReturnType<typeof useWorkflowState>;
+	try {
+		workflowState = injectWorkflowState();
+	} catch {
+		// If injection fails (e.g., in App.vue), use directly
+		workflowState = useWorkflowState();
+	}
 	const settingsStore = useSettingsStore();
 	const uiStore = useUIStore();
 
@@ -187,8 +196,130 @@ export const useExecutionDebugging = () => {
 		workflowsStore.isInDebugMode = false;
 	};
 
+	/**
+	 * Apply runData from a file (e.g., .data file) to the workflow
+	 * Similar to applyExecutionData but works with raw runData
+	 */
+	const applyRunDataFromFile = async (runData: any): Promise<void> => {
+		const workflowObject = workflowsStore.workflowObject;
+		const workflowNodes = workflowsStore.getNodes();
+
+		if (!runData || typeof runData !== 'object') {
+			toast.showError(new Error('Invalid runData provided'), 'Failed to load data');
+			return;
+		}
+
+		const executionNodeNames = Object.keys(runData);
+		const missingNodeNames = executionNodeNames.filter(
+			(name) => !workflowNodes.some((node) => node.name === name),
+		);
+
+		// Using the pinned data of the workflow to check if the node is pinned
+		const workflowPinnedNodeNames = Object.keys(workflowsStore.workflow.pinData ?? {});
+		const matchingPinnedNodeNames = executionNodeNames.filter((name) =>
+			workflowPinnedNodeNames.includes(name),
+		);
+
+		if (matchingPinnedNodeNames.length > 0) {
+			const confirmMessage = h('p', [
+				i18n.baseText('nodeView.confirmMessage.debug.message'),
+				h(
+					'ul',
+					{ class: 'mt-l ml-l' },
+					matchingPinnedNodeNames.map((name) => h('li', sanitizeHtml(name))),
+				),
+			]);
+
+			const overWritePinnedDataConfirm = await message.confirm(
+				confirmMessage,
+				i18n.baseText('nodeView.confirmMessage.debug.headline'),
+				{
+					type: 'warning',
+					confirmButtonText: i18n.baseText('nodeView.confirmMessage.debug.confirmButtonText'),
+					cancelButtonText: i18n.baseText('nodeView.confirmMessage.debug.cancelButtonText'),
+					customClass: 'matching-pinned-nodes-confirmation',
+				},
+			);
+
+			if (overWritePinnedDataConfirm === MODAL_CONFIRM) {
+				matchingPinnedNodeNames.forEach((name) => {
+					const node = workflowsStore.getNodeByName(name);
+					if (node) {
+						workflowsStore.unpinData({ node });
+					}
+				});
+			} else {
+				return;
+			}
+		}
+
+		// Reset all node issues
+		workflowState.resetAllNodesIssues();
+
+		// Create execution data object from runData so UI can display it
+		const executionData: IExecutionResponse = {
+			id: 'loaded-from-file',
+			finished: true,
+			mode: 'manual',
+			status: 'success',
+			createdAt: new Date(),
+			startedAt: new Date(),
+			stoppedAt: new Date(),
+			workflowId: workflowsStore.workflowId,
+			data: createRunExecutionData({
+				resultData: {
+					runData: runData,
+				},
+			}),
+			workflowData: workflowsStore.workflow as any,
+		};
+
+		// Set execution data so UI can display it
+		workflowState.setWorkflowExecutionData(executionData);
+
+		// Pin data of all nodes which do not have a parent node
+		const pinnableNodes = workflowNodes.filter(
+			(node: INodeUi) => !workflowObject.getParentNodes(node.name).length,
+		);
+
+		let pinnings = 0;
+
+		pinnableNodes.forEach((node: INodeUi) => {
+			const taskData = runData[node.name]?.[0];
+			if (taskData?.data?.main) {
+				// Get the first main output that has data, preserving all execution data including binary
+				const nodeData = taskData.data.main.find((output) => output && output.length > 0);
+				if (nodeData) {
+					pinnings++;
+					workflowsStore.pinData({
+						node,
+						data: nodeData,
+						isRestoration: true,
+					});
+				}
+			}
+		});
+
+		toast.showToast({
+			title: i18n.baseText('nodeView.showMessage.debug.title'),
+			message: i18n.baseText('nodeView.showMessage.debug.content'),
+			type: 'info',
+		});
+
+		if (missingNodeNames.length) {
+			toast.showToast({
+				title: i18n.baseText('nodeView.showMessage.debug.missingNodes.title'),
+				message: i18n.baseText('nodeView.showMessage.debug.missingNodes.content', {
+					interpolate: { nodeNames: missingNodeNames.join(', ') },
+				}),
+				type: 'warning',
+			});
+		}
+	};
+
 	return {
 		applyExecutionData,
 		handleDebugLinkClick,
+		applyRunDataFromFile,
 	};
 };

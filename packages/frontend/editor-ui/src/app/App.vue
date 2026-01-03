@@ -36,6 +36,7 @@ import { useWorkflowSync } from '@/app/composables/useWorkflowSync';
 import { useToast } from '@/app/composables/useToast';
 import { useCanvasOperations } from '@/app/composables/useCanvasOperations';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
+import { useExecutionDebugging } from '@/features/execution/executions/composables/useExecutionDebugging';
 
 const route = useRoute();
 const rootStore = useRootStore();
@@ -85,86 +86,106 @@ useTelemetryContext({ ndv_source: computed(() => ndvStore.lastSetActiveNodeSourc
 
 // Global message handler for VS Code workflowSync messages
 const toast = useToast();
+const { applyRunDataFromFile } = useExecutionDebugging();
 
 async function handleVSCodeWorkflowSync(messageEvent: MessageEvent) {
 	// Handle object-based messages from VS Code webview
-	if (
-		typeof messageEvent.data === 'object' &&
-		messageEvent.data !== null &&
-		messageEvent.data.type === 'workflowSync'
-	) {
-		console.log('[App.vue] Received workflowSync message');
-		try {
-			const { syncWorkflow, navigateToWorkflow } = useWorkflowSync();
-			const { initializeWorkspace } = useCanvasOperations();
-			const workflowsStore = useWorkflowsStore();
-			const workflowData = messageEvent.data.workflow;
-
-			if (!workflowData || !workflowData.name) {
-				throw new Error('Invalid workflow data: missing name');
-			}
-
-			console.log('[App.vue] Syncing workflow:', workflowData.name);
-			const result = await syncWorkflow(workflowData);
-
-			// Navigate to the workflow
-			await navigateToWorkflow(result.workflow.id);
-
-			// Refresh the workflow data in the UI by fetching and initializing workspace
+	if (typeof messageEvent.data === 'object' && messageEvent.data !== null) {
+		if (messageEvent.data.type === 'workflowSync') {
+			console.log('[App.vue] Received workflowSync message');
 			try {
-				const updatedWorkflow = await workflowsStore.fetchWorkflow(result.workflow.id);
-				if (updatedWorkflow.checksum) {
-					// Check if we're currently viewing this workflow
-					if (workflowsStore.workflowId === result.workflow.id) {
-						await initializeWorkspace(updatedWorkflow);
-						console.log('[App.vue] Workflow UI refreshed');
-					}
+				const { syncWorkflow, navigateToWorkflow } = useWorkflowSync();
+				const { initializeWorkspace } = useCanvasOperations();
+				const workflowsStore = useWorkflowsStore();
+				const workflowData = messageEvent.data.workflow;
+
+				if (!workflowData || !workflowData.name) {
+					throw new Error('Invalid workflow data: missing name');
 				}
-			} catch (refreshError) {
-				console.warn('[App.vue] Failed to refresh workflow UI:', refreshError);
-				// Don't throw - sync was successful, refresh is just a nice-to-have
-			}
 
-			// Notify VS Code that sync completed
-			if (window.parent) {
-				window.parent.postMessage(
-					JSON.stringify({
-						command: 'workflowSyncComplete',
-						workflowId: result.workflow.id,
-						workflowName: result.workflow.name,
-						action: result.action,
-					}),
-					'*',
-				);
-			}
+				console.log('[App.vue] Syncing workflow:', workflowData.name);
+				const result = await syncWorkflow(workflowData);
 
-			// Show appropriate toast message
-			if (result.action === 'created') {
-				toast.showMessage({
-					title: 'Workflow Created',
-					message: `Created new workflow: ${result.workflow.name}`,
-					type: 'success',
-				});
-			} else if (result.action === 'updated') {
-				toast.showMessage({
-					title: 'Workflow Updated',
-					message: `Updated workflow: ${result.workflow.name}`,
-					type: 'success',
-				});
+				// Navigate to the workflow
+				await navigateToWorkflow(result.workflow.id);
+
+				// Refresh the workflow data in the UI by fetching and initializing workspace
+				try {
+					const updatedWorkflow = await workflowsStore.fetchWorkflow(result.workflow.id);
+					if (updatedWorkflow.checksum) {
+						// Check if we're currently viewing this workflow
+						if (workflowsStore.workflowId === result.workflow.id) {
+							await initializeWorkspace(updatedWorkflow);
+							console.log('[App.vue] Workflow UI refreshed');
+						}
+					}
+				} catch (refreshError) {
+					console.warn('[App.vue] Failed to refresh workflow UI:', refreshError);
+					// Don't throw - sync was successful, refresh is just a nice-to-have
+				}
+
+				// Notify VS Code that sync completed
+				if (window.parent) {
+					window.parent.postMessage(
+						JSON.stringify({
+							command: 'workflowSyncComplete',
+							workflowId: result.workflow.id,
+							workflowName: result.workflow.name,
+							action: result.action,
+						}),
+						'*',
+					);
+				}
+
+				// Show appropriate toast message
+				if (result.action === 'created') {
+					toast.showMessage({
+						title: 'Workflow Created',
+						message: `Created new workflow: ${result.workflow.name}`,
+						type: 'success',
+					});
+				} else if (result.action === 'updated') {
+					toast.showMessage({
+						title: 'Workflow Updated',
+						message: `Updated workflow: ${result.workflow.name}`,
+						type: 'success',
+					});
+				}
+			} catch (e) {
+				console.error('[App.vue] Workflow sync error:', e);
+				if (window.top) {
+					window.top.postMessage(
+						JSON.stringify({
+							command: 'error',
+							message: 'Failed to sync workflow',
+							error: (e as Error).message,
+						}),
+						'*',
+					);
+				}
+				toast.showError(e, 'Workflow Sync Error');
 			}
-		} catch (e) {
-			console.error('[App.vue] Workflow sync error:', e);
-			if (window.top) {
-				window.top.postMessage(
-					JSON.stringify({
-						command: 'error',
-						message: 'Failed to sync workflow',
-						error: (e as Error).message,
-					}),
-					'*',
-				);
+		} else if (messageEvent.data.type === 'dataFileLoaded') {
+			console.log('[App.vue] Received dataFileLoaded message');
+			try {
+				const runData = messageEvent.data.runData;
+
+				if (!runData) {
+					throw new Error('No runData provided in dataFileLoaded message');
+				}
+
+				await applyRunDataFromFile(runData);
+				console.log('[App.vue] Applied runData from file');
+			} catch (e) {
+				console.error('[App.vue] Failed to apply data from file:', e);
+				toast.showError(e, 'Failed to load data from file');
 			}
-			toast.showError(e, 'Workflow Sync Error');
+		} else if (messageEvent.data.type === 'dataFileError') {
+			console.error('[App.vue] Data file error:', messageEvent.data.error);
+			toast.showError(
+				new Error(messageEvent.data.error || 'Failed to load data file'),
+				'Data file error',
+			);
 		}
 	}
 }

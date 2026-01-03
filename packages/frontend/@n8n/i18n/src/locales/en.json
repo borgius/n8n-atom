@@ -1804,6 +1804,7 @@
 	"nodeView.resetZoom": "Reset Zoom",
 	"nodeView.tidyUp": "Tidy Up",
 	"nodeView.runButtonText.executeWorkflow": "Execute workflow",
+	"nodeView.loadData.button": "Load Data",
 	"nodeView.runButtonText.executingWorkflow": "Executing workflow",
 	"nodeView.runButtonText.waitingForTriggerEvent": "Waiting for trigger event",
 	"nodeView.runButtonText.from": "from {nodeName}",
