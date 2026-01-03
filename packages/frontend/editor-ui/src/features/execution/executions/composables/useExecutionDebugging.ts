@@ -153,8 +153,18 @@ export const useExecutionDebugging = () => {
 		if (currentWorkflowData) {
 			// Extract runData from execution for saving to .data file
 			const executionRunData = execution.data?.resultData?.runData;
+			// Extract execution timing information for creating timestamped .data file
+			const executionTiming = {
+				startedAt: execution.startedAt,
+				stoppedAt: execution.stoppedAt,
+			};
 			// Sync workflow to .n8n file and execution data to .data file
-			workflowFileSync.syncWorkflowToFile(currentWorkflowData, true, executionRunData);
+			workflowFileSync.syncWorkflowToFile(
+				currentWorkflowData,
+				true,
+				executionRunData,
+				executionTiming,
+			);
 		}
 	};
 

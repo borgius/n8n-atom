@@ -94,11 +94,13 @@ export function useWorkflowFileSync() {
 	 * @param workflowData - The workflow data to sync
 	 * @param shouldSave - If true, actually save the file; if false, just apply edit
 	 * @param executionData - Optional execution data (runData) to save to .data file
+	 * @param executionTiming - Optional execution timing information (startedAt, stoppedAt) for timestamped .data file
 	 */
 	function syncWorkflowToFile(
 		workflowData: WorkflowFileData,
 		shouldSave = false,
 		executionData?: any,
+		executionTiming?: { startedAt?: Date | string; stoppedAt?: Date | string },
 	): void {
 		if (!isVSCodeWebview()) {
 			return;
@@ -126,6 +128,25 @@ export function useWorkflowFileSync() {
 				}
 			}
 
+			// Serialize execution timing if provided
+			let serializedExecutionTiming: any = undefined;
+			if (executionTiming) {
+				try {
+					serializedExecutionTiming = {
+						startedAt:
+							executionTiming.startedAt instanceof Date
+								? executionTiming.startedAt.toISOString()
+								: executionTiming.startedAt,
+						stoppedAt:
+							executionTiming.stoppedAt instanceof Date
+								? executionTiming.stoppedAt.toISOString()
+								: executionTiming.stoppedAt,
+					};
+				} catch (error) {
+					console.warn('[WorkflowFileSync] Failed to serialize execution timing:', error);
+				}
+			}
+
 			// Create the message object
 			const message: any = {
 				type: 'workflowUpdate',
@@ -136,6 +157,11 @@ export function useWorkflowFileSync() {
 			// Include execution data if provided
 			if (serializedExecutionData) {
 				message.executionData = serializedExecutionData;
+			}
+
+			// Include execution timing if provided
+			if (serializedExecutionTiming) {
+				message.executionTiming = serializedExecutionTiming;
 			}
 
 			// Verify the message can be cloned before sending
@@ -179,11 +205,13 @@ export function useWorkflowFileSync() {
 	 * @param workflow - The workflow to sync
 	 * @param shouldSave - If true, actually save the file; if false, just apply edit
 	 * @param executionData - Optional execution data (runData) to save to .data file
+	 * @param executionTiming - Optional execution timing information (startedAt, stoppedAt) for timestamped .data file
 	 */
 	function syncFromWorkflowDb(
 		workflow: IWorkflowDb,
 		shouldSave = false,
 		executionData?: any,
+		executionTiming?: { startedAt?: Date | string; stoppedAt?: Date | string },
 	): void {
 		syncWorkflowToFile(
 			{
@@ -195,6 +223,7 @@ export function useWorkflowFileSync() {
 			},
 			shouldSave,
 			executionData,
+			executionTiming,
 		);
 	}
 
