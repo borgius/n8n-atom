@@ -2323,6 +2323,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	justify-content: center;
 	align-items: center;
+	gap: var(--spacing--xs);
 	left: 50%;
 	transform: translateX(-50%);
 	bottom: var(--spacing--sm);
