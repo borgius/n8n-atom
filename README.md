@@ -3,24 +3,11 @@ First n8n client that manage workflow collections inside VSCode/Cursor/Antigravi
 - Website: <a href="https://atom8n.com/" target="_blank">www.atom8n.com</a>
 - Download the client extension: <a href="https://marketplace.visualstudio.com/items?itemName=atom8n.n8n-atom-v3" target="_blank">n8n Atom 3.0</a>
 - Support: <a href="https://discord.gg/9MmAhtJFWW" target="_blank">atom8n Community</a>
-- Local Installation :
-```
-pnpm install && pnpm run build && pnpm run start
-```
-- Or docker installation:
-```
-pnpm run build:docker
-```
-
-This creates n8nio/n8n:local. Then run:
-
+- Docker installation:
 ```
 docker volume create n8n_data
 
-docker run -it --rm --name n8n \
-  -p 5678:5678 \
-  -v n8n_data:/home/node/.n8n \
-  n8nio/n8n:local
+docker run --pull=always -it --rm --name n8n-atom -p 5678:5678 -v n8n_data:/home/node/.n8n atom8n/n8n:fork
 ```
 
 
