@@ -32,12 +32,11 @@ class TagGenerator {
 	output(tags, prefix = '') {
 		if (this.githubOutput) {
 			const prefixStr = prefix ? `${prefix}_` : '';
-			const primaryTag = tags.ghcr[0] ? tags.ghcr[0].replace(/-amd64$|-arm64$/, '') : '';
+			
 			const outputs = [
 				`${prefixStr}tags=${tags.all.join(',')}`,
-				`${prefixStr}ghcr_tag=${tags.ghcr[0] || ''}`,
-				`${prefixStr}docker_tag=${tags.docker[0] || ''}`,
-				`${prefixStr}primary_tag=${primaryTag}`,
+				
+				`${prefixStr}docker_tag=${tags.docker[0] || ''}`
 			];
 			appendFileSync(this.githubOutput, outputs.join('\n') + '\n');
 		} else {
