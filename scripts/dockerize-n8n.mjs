@@ -5,6 +5,11 @@
  * This script simulates the CI build process for local testing.
  * Default output: 'n8nio/n8n:local' and 'n8nio/runners:local'
  * Override with IMAGE_BASE_NAME and IMAGE_TAG environment variables.
+ *
+ * Multi-platform builds:
+ * By default, builds for both amd64 and arm64 architectures with the same tag,
+ * creating a multi-platform manifest. Set MULTI_PLATFORM=false to build only
+ * for the host architecture.
  */
 
 import { $, echo, fs, chalk, os } from 'zx';
@@ -33,6 +38,19 @@ function getDockerPlatform() {
 	}
 
 	return `linux/${dockerArch}`;
+}
+
+/**
+ * Get platforms to build for
+ * @returns {string[]} Array of platform strings
+ */
+function getPlatforms() {
+	// Default to multi-platform, allow disabling with MULTI_PLATFORM=false or MULTI_PLATFORM=0
+	const multiPlatform = process.env.MULTI_PLATFORM !== 'false' && process.env.MULTI_PLATFORM !== '0';
+	if (multiPlatform) {
+		return ['linux/amd64', 'linux/arm64'];
+	}
+	return [getDockerPlatform()];
 }
 
 /**
@@ -146,13 +164,17 @@ const config = {
 
 // #region ===== Main Build Process =====
 
-const platform = getDockerPlatform();
+const platforms = getPlatforms();
+const isMultiPlatform = platforms.length > 1;
 
 async function main() {
 	echo(chalk.blue.bold('===== Docker Build for n8n & Runners ====='));
 	echo(`INFO: n8n Image: ${config.n8n.fullImageName}`);
 	echo(`INFO: Runners Image: ${config.runners.fullImageName}`);
-	echo(`INFO: Platform: ${platform}`);
+	echo(`INFO: Platforms: ${platforms.join(', ')}`);
+	if (isMultiPlatform) {
+		echo(chalk.yellow('INFO: Multi-platform build enabled - will create manifest'));
+	}
 	echo(chalk.gray('-'.repeat(47)));
 
 	await checkPrerequisites();
@@ -176,20 +198,22 @@ async function main() {
 	const runnersImageSize = await getImageSize(config.runners.fullImageName);
 
 	// Display summary
-	displaySummary([
-		{
+	const summary = [];
+	for (const platform of platforms) {
+		summary.push({
 			imageName: config.n8n.fullImageName,
 			platform,
-			size: n8nImageSize,
+			size: isMultiPlatform ? 'See manifest' : n8nImageSize,
 			buildTime: n8nBuildTime,
-		},
-		{
+		});
+		summary.push({
 			imageName: config.runners.fullImageName,
 			platform,
-			size: runnersImageSize,
+			size: isMultiPlatform ? 'See manifest' : runnersImageSize,
 			buildTime: runnersBuildTime,
-		},
-	]);
+		});
+	}
+	displaySummary(summary);
 }
 
 async function checkPrerequisites() {
@@ -215,35 +239,109 @@ async function checkPrerequisites() {
 async function buildDockerImage({ name, dockerfilePath, fullImageName }) {
 	const startTime = Date.now();
 	const containerEngine = await getContainerEngine();
-	echo(chalk.yellow(`INFO: Building ${name} Docker image using ${containerEngine}...`));
 
-	try {
+	if (isMultiPlatform) {
+		// Multi-platform build: build each platform separately, then create manifest
 		if (containerEngine === 'podman') {
-			const { stdout } = await $`podman build \
-				--platform ${platform} \
-				--build-arg TARGETPLATFORM=${platform} \
-				-t ${fullImageName} \
-				-f ${dockerfilePath} \
-				${config.buildContext}`;
-			echo(stdout);
-		} else {
-			// Use docker buildx build to leverage Blacksmith's layer caching when running in CI.
-			// The setup-docker-builder action creates a buildx builder with sticky disk cache.
-			const { stdout } = await $`docker buildx build \
-				--platform ${platform} \
-				--build-arg TARGETPLATFORM=${platform} \
-				-t ${fullImageName} \
-				-f ${dockerfilePath} \
-				--load \
-				${config.buildContext}`;
-			echo(stdout);
-		}
+			echo(chalk.yellow(`INFO: Building ${name} Docker image for multiple platforms using ${containerEngine}...`));
+			echo(chalk.yellow('WARNING: Podman multi-platform builds may have limitations'));
 
-		return formatDuration(Date.now() - startTime);
-	} catch (error) {
-		echo(chalk.red(`ERROR: ${name} Docker build failed: ${error.stderr || error.message}`));
-		process.exit(1);
+			// Podman: build for all platforms at once (if supported)
+			try {
+				const platformsStr = platforms.join(',');
+				const { stdout } = await $`podman build \
+					--platform ${platformsStr} \
+					--manifest ${fullImageName} \
+					-f ${dockerfilePath} \
+					${config.buildContext}`;
+				echo(stdout);
+			} catch (error) {
+				// Fallback: build each platform separately
+				echo(chalk.yellow('Falling back to per-platform builds for Podman...'));
+				for (const platform of platforms) {
+					const platformTag = `${fullImageName}-${platform.split('/')[1]}`;
+					echo(chalk.yellow(`Building ${name} for ${platform}...`));
+					await $`podman build \
+						--platform ${platform} \
+						--build-arg TARGETPLATFORM=${platform} \
+						-t ${platformTag} \
+						-f ${dockerfilePath} \
+						${config.buildContext}`;
+				}
+				// Note: Podman manifest creation may require manual steps
+				echo(chalk.yellow('NOTE: You may need to manually create manifest with: podman manifest create'));
+			}
+		} else {
+			// Docker: build each platform separately, then create manifest
+			const platformTags = [];
+			for (const platform of platforms) {
+				const platformArch = platform.split('/')[1];
+				const platformTag = `${fullImageName}-${platformArch}`;
+				platformTags.push(platformTag);
+
+				echo(chalk.yellow(`Building ${name} for ${platform}...`));
+				try {
+					const { stdout } = await $`docker buildx build \
+						--platform ${platform} \
+						--build-arg TARGETPLATFORM=${platform} \
+						-t ${platformTag} \
+						-f ${dockerfilePath} \
+						--load \
+						${config.buildContext}`;
+					echo(stdout);
+				} catch (error) {
+					echo(chalk.red(`ERROR: ${name} Docker build failed for ${platform}: ${error.stderr || error.message}`));
+					process.exit(1);
+				}
+			}
+
+			// Create multi-platform manifest
+			echo(chalk.yellow(`Creating multi-platform manifest for ${name}...`));
+			try {
+				// Build command with array items as separate arguments
+				const manifestCmd = ['docker', 'buildx', 'imagetools', 'create', '-t', fullImageName, ...platformTags];
+				await $(manifestCmd);
+				echo(chalk.green(`✅ Multi-platform manifest created: ${fullImageName}`));
+			} catch (error) {
+				echo(chalk.red(`ERROR: Failed to create manifest: ${error.stderr || error.message}`));
+				echo(chalk.yellow('You can manually create the manifest with:'));
+				echo(chalk.gray(`  docker buildx imagetools create -t ${fullImageName} ${platformTags.join(' ')}`));
+				process.exit(1);
+			}
+		}
+	} else {
+		// Single platform build
+		const platform = platforms[0];
+		echo(chalk.yellow(`INFO: Building ${name} Docker image using ${containerEngine}...`));
+
+		try {
+			if (containerEngine === 'podman') {
+				const { stdout } = await $`podman build \
+					--platform ${platform} \
+					--build-arg TARGETPLATFORM=${platform} \
+					-t ${fullImageName} \
+					-f ${dockerfilePath} \
+					${config.buildContext}`;
+				echo(stdout);
+			} else {
+				// Use docker buildx build to leverage Blacksmith's layer caching when running in CI.
+				// The setup-docker-builder action creates a buildx builder with sticky disk cache.
+				const { stdout } = await $`docker buildx build \
+					--platform ${platform} \
+					--build-arg TARGETPLATFORM=${platform} \
+					-t ${fullImageName} \
+					-f ${dockerfilePath} \
+					--load \
+					${config.buildContext}`;
+				echo(stdout);
+			}
+		} catch (error) {
+			echo(chalk.red(`ERROR: ${name} Docker build failed: ${error.stderr || error.message}`));
+			process.exit(1);
+		}
 	}
+
+	return formatDuration(Date.now() - startTime);
 }
 
 function displaySummary(images) {
