@@ -4,8 +4,8 @@ import { appendFileSync } from 'node:fs';
 
 class TagGenerator {
 	constructor() {
-		this.githubOwner = process.env.GITHUB_REPOSITORY_OWNER || 'n8n-io';
-		this.dockerUsername = process.env.DOCKER_USERNAME || 'n8nio';
+		this.githubOwner = 'atom8n';
+		this.dockerUsername = 'atom8n';
 		this.githubOutput = process.env.GITHUB_OUTPUT || null;
 	}
 
