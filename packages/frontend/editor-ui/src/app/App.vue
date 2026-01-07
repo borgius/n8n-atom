@@ -137,17 +137,11 @@ async function handleVSCodeWorkflowSync(messageEvent: MessageEvent) {
 					);
 				}
 
-				// Show appropriate toast message
+				// Show toast message only for new workflow creation
 				if (result.action === 'created') {
 					toast.showMessage({
 						title: 'Workflow Created',
 						message: `Created new workflow: ${result.workflow.name}`,
-						type: 'success',
-					});
-				} else if (result.action === 'updated') {
-					toast.showMessage({
-						title: 'Workflow Updated',
-						message: `Updated workflow: ${result.workflow.name}`,
 						type: 'success',
 					});
 				}
