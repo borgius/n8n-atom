@@ -139,7 +139,6 @@ import { useKeybindings } from '@/app/composables/useKeybindings';
 import { type ContextMenuAction } from '@/features/shared/contextMenu/composables/useContextMenuItems';
 import { useExperimentalNdvStore } from '@/features/workflows/canvas/experimental/experimentalNdv.store';
 import { useWorkflowState } from '@/app/composables/useWorkflowState';
-import { useWorkflowSync } from '@/app/composables/useWorkflowSync';
 import { useParentFolder } from '@/features/core/folders/composables/useParentFolder';
 import { useWorkflowFileSync } from '@/app/composables/useWorkflowFileSync';
 
@@ -1568,80 +1567,16 @@ async function onPostMessageReceived(messageEvent: MessageEvent) {
 		return;
 	}
 
-	// Handle object-based messages from VS Code webview (type: 'workflowSync')
+	// Note: workflowSync messages are handled globally in App.vue to avoid duplicate processing
+	// Here we only handle object-based messages that are NOT workflowSync
+
+	// Handle object-based messages from VS Code webview
 	if (typeof messageEvent.data === 'object' && messageEvent.data !== null) {
+		// Skip workflowSync - it's handled in App.vue to prevent duplicate toasts
 		if (messageEvent.data.type === 'workflowSync') {
-			// Handle workflow sync from VS Code extension
-			try {
-				const { syncAndNavigate } = useWorkflowSync();
-				const workflowData = messageEvent.data.workflow;
-
-				if (!workflowData || !workflowData.name) {
-					throw new Error('Invalid workflow data: missing name');
-				}
-
-				// Initialize data before syncing
-				await initializeData();
-
-				const result = await syncAndNavigate(workflowData);
-
-				// Refresh the workflow data in the UI by fetching and initializing workspace
-				try {
-					const updatedWorkflow = await workflowsStore.fetchWorkflow(result.workflow.id);
-					if (updatedWorkflow.checksum) {
-						// Check if we're currently viewing this workflow
-						if (workflowsStore.workflowId === result.workflow.id) {
-							await initializeWorkspace(updatedWorkflow);
-							console.log('[NodeView] Workflow UI refreshed');
-						}
-					}
-				} catch (refreshError) {
-					console.warn('[NodeView] Failed to refresh workflow UI:', refreshError);
-					// Don't throw - sync was successful, refresh is just a nice-to-have
-				}
-
-				// Notify VS Code that sync completed
-				if (window.parent) {
-					window.parent.postMessage(
-						JSON.stringify({
-							command: 'workflowSyncComplete',
-							workflowId: result.workflow.id,
-							workflowName: result.workflow.name,
-							action: result.action,
-						}),
-						'*',
-					);
-				}
-
-				// Show appropriate toast message
-				if (result.action === 'created') {
-					toast.showMessage({
-						title: 'Workflow Created',
-						message: `Created new workflow: ${result.workflow.name}`,
-						type: 'success',
-					});
-				} else if (result.action === 'updated') {
-					toast.showMessage({
-						title: 'Workflow Updated',
-						message: `Updated workflow: ${result.workflow.name}`,
-						type: 'success',
-					});
-				}
-			} catch (e) {
-				if (window.top) {
-					window.top.postMessage(
-						JSON.stringify({
-							command: 'error',
-							message: 'Failed to sync workflow',
-							error: (e as Error).message,
-						}),
-						'*',
-					);
-				}
-				toast.showError(e, 'Workflow Sync Error');
-			}
+			return;
 		}
-		// Object-based messages handled, exit
+		// Other object-based messages can be handled here if needed
 		return;
 	}
 
