@@ -12,6 +12,8 @@ docker run --pull=always -it --rm --name n8n-atom -p 5888:5888 -v n8n_data:/home
 
 
 <img width="2718" height="1618" alt="image" src="https://github.com/user-attachments/assets/8cc10306-e349-4cac-b5b7-e04cc9695ca0" />
+<img width="2100" height="1358" alt="image" src="https://github.com/user-attachments/assets/6f53d124-27e8-45e2-935f-3933ad42ff12" />
+
 
 <img width="2114" height="1496" alt="image" src="https://github.com/user-attachments/assets/c48534d1-742f-4981-b5eb-557f610015d2" />
 
