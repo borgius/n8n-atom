@@ -26,7 +26,7 @@ export class TaskRunnersConfig {
 
 	/** Port task runners broker should listen on */
 	@Env('N8N_RUNNERS_BROKER_PORT')
-	port: number = 5679;
+	port: number = 5999;
 
 	/** IP address task runners broker should listen on */
 	@Env('N8N_RUNNERS_BROKER_LISTEN_ADDRESS')

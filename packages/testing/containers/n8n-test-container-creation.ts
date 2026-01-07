@@ -75,7 +75,7 @@ const BASE_ENV: Record<string, string> = {
 // Wait strategy for n8n main containers
 const N8N_MAIN_WAIT_STRATEGY = Wait.forAll([
 	Wait.forListeningPorts(),
-	Wait.forHttp('/healthz/readiness', 5678).forStatusCode(200).withStartupTimeout(30000),
+	Wait.forHttp('/healthz/readiness', 5888).forStatusCode(200).withStartupTimeout(30000),
 	Wait.forLogMessage('Editor is now accessible via').withStartupTimeout(30000),
 ]);
 
@@ -382,7 +382,7 @@ export async function createN8NStack(config: N8NConfig = {}): Promise<N8NStack> 
 				job: 'n8n-main',
 				instance: `n8n-main-${i}`,
 				host: hostname,
-				port: 5678,
+				port: 5888,
 			});
 		}
 
@@ -392,7 +392,7 @@ export async function createN8NStack(config: N8NConfig = {}): Promise<N8NStack> 
 				job: 'n8n-worker',
 				instance: `n8n-worker-${i}`,
 				host: `${uniqueProjectName}-n8n-worker-${i}`,
-				port: 5678,
+				port: 5888,
 			});
 		}
 
@@ -473,7 +473,7 @@ export async function createN8NStack(config: N8NConfig = {}): Promise<N8NStack> 
 		environment = {
 			...environment,
 			WEBHOOK_URL: baseUrl,
-			N8N_PORT: '5678', // Internal port
+			N8N_PORT: '5888', // Internal port
 		};
 
 		const instances = await createN8NInstances({
@@ -511,7 +511,7 @@ export async function createN8NStack(config: N8NConfig = {}): Promise<N8NStack> 
 			: mainCount > 1
 				? `${uniqueProjectName}-n8n-main-1`
 				: `${uniqueProjectName}-n8n`;
-		const taskBrokerUri = `http://${taskBrokerHost}:5679`;
+		const taskBrokerUri = `http://${taskBrokerHost}:5999`;
 
 		const taskRunnerContainer = await setupTaskRunner({
 			projectName: uniqueProjectName,
@@ -743,20 +743,20 @@ async function createN8NContainer({
 
 	if (isWorker) {
 		// Workers expose task broker port if task runners are enabled
-		const workerPorts = taskRunnerEnabled ? [5678, 5679] : [5678];
+		const workerPorts = taskRunnerEnabled ? [5888, 5999] : [5888];
 		container = container
 			.withCommand(['worker'])
 			.withExposedPorts(...workerPorts)
 			.withWaitStrategy(N8N_WORKER_WAIT_STRATEGY);
 	} else {
-		// Mains always expose both ports (5678 for web, 5679 for task broker when enabled)
-		const mainPorts = taskRunnerEnabled ? [5678, 5679] : [5678];
+		// Mains always expose both ports (5888 for web, 5999 for task broker when enabled)
+		const mainPorts = taskRunnerEnabled ? [5888, 5999] : [5888];
 		container = container.withExposedPorts(...mainPorts).withWaitStrategy(N8N_MAIN_WAIT_STRATEGY);
 
 		if (directPort) {
 			const portMappings = taskRunnerEnabled
-				? [{ container: 5678, host: directPort }, 5679]
-				: [{ container: 5678, host: directPort }];
+				? [{ container: 5888, host: directPort }, 5999]
+				: [{ container: 5888, host: directPort }];
 			container = container
 				.withExposedPorts(...portMappings)
 				.withWaitStrategy(N8N_MAIN_WAIT_STRATEGY);

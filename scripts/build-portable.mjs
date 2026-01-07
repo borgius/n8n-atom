@@ -367,7 +367,7 @@ You can override this by setting the \`N8N_USER_FOLDER\` environment variable.
 You can set environment variables before running n8n:
 
 \`\`\`bash
-export N8N_PORT=5678
+export N8N_PORT=5888
 export N8N_HOST=0.0.0.0
 ./n8n start
 \`\`\`
@@ -404,7 +404,7 @@ chmod +x n8n
 If port 5678 is already in use, you can change it:
 
 \`\`\`bash
-export N8N_PORT=5679
+export N8N_PORT=5999
 ./n8n start
 \`\`\`
 

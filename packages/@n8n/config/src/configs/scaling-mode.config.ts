@@ -12,7 +12,7 @@ class HealthConfig {
 
 	/** Port for worker server to listen on. */
 	@Env('QUEUE_HEALTH_CHECK_PORT')
-	port: number = 5678;
+	port: number = 5888;
 
 	/** IP address for worker server to listen on. */
 	@Env('N8N_WORKER_SERVER_ADDRESS')
