@@ -148,7 +148,8 @@ export class FrontendService {
 		const restEndpoint = this.globalConfig.endpoints.rest;
 
 		const telemetrySettings: ITelemetrySettings = {
-			enabled: this.globalConfig.diagnostics.enabled,
+			// Disable telemetry in local mode (N8N_LOCAL=true)
+			enabled: !this.globalConfig.license.isLocal && this.globalConfig.diagnostics.enabled,
 		};
 
 		if (telemetrySettings.enabled) {
@@ -216,7 +217,8 @@ export class FrontendService {
 			instanceId: this.instanceSettings.instanceId,
 			telemetry: telemetrySettings,
 			posthog: {
-				enabled: this.globalConfig.diagnostics.enabled,
+				// Disable PostHog in local mode (N8N_LOCAL=true)
+				enabled: !this.globalConfig.license.isLocal && this.globalConfig.diagnostics.enabled,
 				apiHost: this.globalConfig.diagnostics.posthogConfig.apiHost,
 				apiKey: this.globalConfig.diagnostics.posthogConfig.apiKey,
 				autocapture: false,
@@ -225,7 +227,9 @@ export class FrontendService {
 				debug: this.globalConfig.logging.level === 'debug',
 			},
 			personalizationSurveyEnabled:
-				this.globalConfig.personalization.enabled && this.globalConfig.diagnostics.enabled,
+				this.globalConfig.personalization.enabled &&
+				!this.globalConfig.license.isLocal &&
+				this.globalConfig.diagnostics.enabled,
 			defaultLocale: this.globalConfig.defaultLocale,
 			userManagement: {
 				quota: this.license.getUsersLimit(),
