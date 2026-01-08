@@ -23,10 +23,14 @@ export class LocalAdminService {
 	 */
 	async ensureLocalAdminExists(): Promise<void> {
 		if (!this.globalConfig.license.isLocal) {
+			this.logger.info('N8N_LOCAL mode is disabled, skipping local admin creation');
 			return;
 		}
 
 		const localAdminEmail = this.globalConfig.license.localAdminEmail;
+		this.logger.info(
+			`N8N_LOCAL mode enabled, ensuring local admin user exists: ${localAdminEmail}`,
+		);
 
 		try {
 			// Check if the local admin user already exists
@@ -36,7 +40,7 @@ export class LocalAdminService {
 			});
 
 			if (localAdmin) {
-				this.logger.debug(`Local admin user ${localAdminEmail} already exists`);
+				this.logger.info(`Local admin user ${localAdminEmail} already exists`);
 				return;
 			}
 
