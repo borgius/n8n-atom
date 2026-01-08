@@ -98,29 +98,34 @@ export class AuthService {
 		allowUnauthenticated,
 	}: CreateAuthMiddlewareOptions) {
 		return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-			// AUTO-AUTH: Skip authentication and automatically use the owner user
-			// This removes the need for login while keeping all functionality working
-			try {
-				const owner = await this.userRepository.findOne({
-					where: { role: { slug: GLOBAL_OWNER_ROLE.slug } },
-					relations: ['role'],
-				});
+			// AUTO-AUTH for N8N_LOCAL mode: Skip authentication and automatically use configured local admin
+			// This removes the need for login while keeping all functionality working in local development
+			if (this.globalConfig.license.isLocal) {
+				try {
+					const localAdmin = await this.userRepository.findOne({
+						where: { email: this.globalConfig.license.localAdminEmail },
+						relations: ['role'],
+					});
 
-				if (owner) {
-					req.user = owner;
-					req.authInfo = {
-						usedMfa: false,
-					};
-					next();
-					return;
+					if (localAdmin) {
+						req.user = localAdmin;
+						req.authInfo = {
+							usedMfa: false,
+						};
+						next();
+						return;
+					}
+				} catch (error) {
+					this.logger.warn(
+						`Failed to auto-authenticate with ${this.globalConfig.license.localAdminEmail} user`,
+						{
+							error: (error as Error).message,
+						},
+					);
 				}
-			} catch (error) {
-				this.logger.warn('Failed to auto-authenticate with owner user', {
-					error: (error as Error).message,
-				});
 			}
 
-			// Fallback to original auth logic if owner not found
+			// Fallback to original auth logic
 			const token = req.cookies[AUTH_COOKIE_NAME];
 
 			if (token) {
