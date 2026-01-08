@@ -54,6 +54,13 @@ export class License implements LicenseProvider {
 		forceRecreate = false,
 		isCli = false,
 	}: { forceRecreate?: boolean; isCli?: boolean } = {}) {
+		// Skip license manager initialization in local mode (N8N_LOCAL=true)
+		// In local mode, all enterprise features are enabled without connecting to license server
+		if (this.globalConfig.license.isLocal) {
+			this.logger.info('N8N_LOCAL mode enabled, skipping license manager initialization');
+			return;
+		}
+
 		if (this.manager && !forceRecreate) {
 			this.logger.warn('License manager already initialized or shutting down');
 			return;
