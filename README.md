@@ -18,6 +18,7 @@ docker run --pull=always -it --rm --name n8n-atom -p 5888:5888 -v n8n_data:/home
 <img width="2114" height="1496" alt="image" src="https://github.com/user-attachments/assets/c48534d1-742f-4981-b5eb-557f610015d2" />
 
 
+
 ![Banner image](https://user-images.githubusercontent.com/10284570/173569848-c624317f-42b1-45a6-ab09-f0ea3c247648.png)
 
 # n8n - Secure Workflow Automation for Technical Teams
