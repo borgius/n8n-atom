@@ -253,10 +253,44 @@ async function main() {
 
 			try {
 				// Check if version already exists
-				if (!force && checkVersionExists(pkgName, pkg.version)) {
-					console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
-					skipCount++;
-					continue;
+				const exists = checkVersionExists(pkgName, pkg.version);
+				if (exists) {
+					if (force) {
+						console.log(`  🗑️  Unpublishing ${pkgName}@${pkg.version}...`);
+						try {
+							let unpublishCmd = `npm unpublish ${pkgName}@${pkg.version} --force`;
+							if (otp) {
+								unpublishCmd += ` --otp=${otp}`;
+							}
+							execSync(unpublishCmd, {
+								cwd: pkgDir,
+								stdio: 'pipe',
+							});
+							console.log(`  ✅ Unpublished ${pkgName}@${pkg.version}`);
+						} catch (unpublishError) {
+							const stderr = unpublishError.stderr?.toString() || '';
+							const stdout = unpublishError.stdout?.toString() || '';
+							const fullOutput = stderr + '\n' + stdout;
+							
+							// Filter out warnings and find the actual error
+							const errorLines = fullOutput
+								.split('\n')
+								.filter(line => 
+									line.trim().length > 0 && 
+									!line.includes('npm warn') && 
+									!line.includes('Recommended protections disabled')
+								);
+
+							if (errorLines.length > 0 && !fullOutput.includes('404')) {
+								console.log(`  ⚠️  Failed to unpublish:`);
+								console.log(errorLines.slice(0, 5).map(l => `     ${l}`).join('\n'));
+							}
+						}
+					} else {
+						console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
+						skipCount++;
+						continue;
+					}
 				}
 
 				// Build publish command with optional OTP
