@@ -83,6 +83,19 @@ function updateDependencies(deps, versionMapping) {
 	return updated;
 }
 
+// Check if package version already exists
+function checkVersionExists(name, version) {
+	try {
+		const result = execSync(`npm view ${name}@${version} version`, {
+			stdio: 'pipe',
+			encoding: 'utf-8',
+		});
+		return !!result.trim();
+	} catch (error) {
+		return false;
+	}
+}
+
 async function main() {
 	console.log(`\n📦 Publishing to npm with scope: ${scope}\n`);
 
@@ -152,6 +165,13 @@ async function main() {
 		const pkgName = pkg.name;
 
 		try {
+			// Check if version already exists
+			if (checkVersionExists(pkgName, pkg.version)) {
+				console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
+				skipCount++;
+				continue;
+			}
+
 			// Build publish command with optional OTP
 			let publishCmd = 'npm publish --access public';
 			if (otp) {
