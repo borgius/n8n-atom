@@ -96,7 +96,29 @@ function checkVersionExists(name, version) {
 	}
 }
 
+// Check for uncommitted changes in package.json files
+function checkGitClean() {
+	try {
+		const output = execSync('git status --porcelain', { encoding: 'utf-8' });
+		const modifiedPackageJsons = output
+			.split('\n')
+			.filter((line) => line.includes('package.json') && line.trim().length > 0);
+
+		if (modifiedPackageJsons.length > 0) {
+			console.error('❌ Working directory contains uncommitted changes to package.json files:');
+			console.error(modifiedPackageJsons.join('\n'));
+			console.error('Please clean up or stash your changes before publishing.');
+			process.exit(1);
+		}
+	} catch (error) {
+		// Ignore if not a git repo or other error, let it proceed or fail later
+		console.warn('⚠️  Warning: Failed to check git status. proceeding...');
+	}
+}
+
 async function main() {
+	checkGitClean();
+
 	console.log(`\n📦 Publishing to npm with scope: ${scope}\n`);
 
 	if (otp) {
