@@ -22,6 +22,8 @@
     "publish:npm": "node scripts/publish-npm.mjs @atom8n",
     "publish:github": "node scripts/publish-github.mjs @atom8n",
     "delete:github": "node scripts/delete-github-packages.mjs @atom8n",
+    "make:public": "node scripts/make-packages-public.mjs",
+    "make:github:public": "node scripts/make-github-packages-public.mjs @atom8n",
     "release": "pnpm run build:fork && pnpm run publish:fork:manifest",
     "build:docker:coverage": "BUILD_WITH_COVERAGE=true node scripts/build-n8n.mjs && node scripts/dockerize-n8n.mjs",
     "build:docker:scan": "node scripts/build-n8n.mjs && node scripts/dockerize-n8n.mjs && node scripts/scan-n8n-image.mjs",
