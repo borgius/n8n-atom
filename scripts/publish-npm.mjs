@@ -282,8 +282,14 @@ async function main() {
 								);
 
 							if (errorLines.length > 0 && !fullOutput.includes('404')) {
-								console.log(`  ⚠️  Failed to unpublish:`);
-								console.log(errorLines.slice(0, 5).map(l => `     ${l}`).join('\n'));
+								const errorText = errorLines.join(' ');
+								if (errorText.includes('OTP') || errorText.includes('TFA') || errorText.includes('one-time password')) {
+									console.log(`  ❌ Failed to unpublish: 2FA OTP required.`);
+									console.log(`     Please run with --otp=CODE or set NPM_OTP environment variable.`);
+								} else {
+									console.log(`  ⚠️  Failed to unpublish:`);
+									console.log(errorLines.slice(0, 5).map(l => `     ${l}`).join('\n'));
+								}
 							}
 						}
 					} else {
