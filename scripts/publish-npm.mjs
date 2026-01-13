@@ -15,6 +15,7 @@ import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { load } from 'js-yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
@@ -66,19 +67,64 @@ function transformName(name) {
 	return name;
 }
 
+// Helper to parse simple YAML (subset needed for catalog) since we might not have js-yaml avail in all envs,
+// but actually we do have it in devDependencies. Let's try to allow for basic parsing if needed,
+// but for robustness let's rely on string parsing for this specific structure or just use regex if we want to be zero-dep,
+// however passing js-yaml is better.
+// Since this is a dev script, we can assume devDependencies are installed.
+
+// Load catalog definitions from pnpm-workspace.yaml
+function loadCatalogs() {
+	try {
+		const workspacePath = join(rootDir, 'pnpm-workspace.yaml');
+		const content = readFileSync(workspacePath, 'utf-8');
+		const yaml = load(content);
+		return {
+			default: yaml.catalog || {},
+			named: yaml.catalogs || {}
+		};
+	} catch (error) {
+		console.warn('⚠️  Warning: Failed to load pnpm-workspace.yaml for catalog resolution:', error.message);
+		return { default: {}, named: {} };
+	}
+}
+
+const catalogs = loadCatalogs();
+
 // Update dependencies in package.json
 function updateDependencies(deps, versionMapping) {
 	if (!deps) return deps;
 	const updated = {};
 	for (const [name, version] of Object.entries(deps)) {
 		const newName = nameMapping.get(name) || name;
-		// Convert workspace: protocol to actual version
-		if (version.startsWith('workspace:')) {
+		
+		let newVersion = version;
+
+		// Handle catalog: protocol
+		if (version.startsWith('catalog:')) {
+			const catalogName = version.replace('catalog:', '');
+			if (catalogName === '') {
+				// Default catalog
+				newVersion = catalogs.default[name] || version;
+			} else {
+				// Named catalog
+				const namedCatalog = catalogs.named[catalogName];
+				newVersion = (namedCatalog && namedCatalog[name]) || version;
+			}
+			
+			// If we resolved it, check if it's a workspace version that needs further resolution
+			if (newVersion.startsWith('workspace:')) {
+				const actualVersion = versionMapping.get(name);
+				newVersion = actualVersion || newVersion.replace('workspace:', '');
+			}
+		} 
+		// Handle workspace: protocol
+		else if (version.startsWith('workspace:')) {
 			const actualVersion = versionMapping.get(name);
-			updated[newName] = actualVersion || version.replace('workspace:', '');
-		} else {
-			updated[newName] = version;
+			newVersion = actualVersion || version.replace('workspace:', '');
 		}
+
+		updated[newName] = newVersion;
 	}
 	return updated;
 }
