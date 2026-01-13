@@ -144,7 +144,8 @@ function checkVersionExists(name, version) {
 }
 
 // Check for uncommitted changes in package.json files
-function checkGitClean() {
+function checkGitClean(force) {
+	if (force) return;
 	try {
 		const output = execSync('git status --porcelain', { encoding: 'utf-8' });
 		const modifiedPackageJsons = output
@@ -163,8 +164,24 @@ function checkGitClean() {
 	}
 }
 
+function restoreFiles() {
+	if (originalContents.size === 0) return;
+	console.log('Step 4: Restoring original package.json files...');
+	for (const [pkgPath, originalContent] of originalContents) {
+		writeFileSync(pkgPath, originalContent);
+	}
+	console.log('✅ Original files restored.\n');
+}
+
+// Handle cleanup on interrupt
+process.on('SIGINT', () => {
+	console.log('\n\nReceived SIGINT. Restoring files...');
+	restoreFiles();
+	process.exit(130);
+});
+
 async function main() {
-	checkGitClean();
+	checkGitClean(force);
 
 	console.log(`\n📦 Publishing to npm with scope: ${scope}\n`);
 
@@ -174,143 +191,141 @@ async function main() {
 		console.log(`ℹ️  Note: If 2FA is enabled, use --otp=CODE or set NPM_OTP env var\n`);
 	}
 
-	const packagesDir = join(rootDir, 'packages');
-	const packageJsons = findPackageJsons(packagesDir);
+	try {
+		const packagesDir = join(rootDir, 'packages');
+		const packageJsons = findPackageJsons(packagesDir);
 
-	console.log(`Found ${packageJsons.length} package.json files\n`);
+		console.log(`Found ${packageJsons.length} package.json files\n`);
 
-	// Version mapping: original name -> version
-	const versionMapping = new Map();
+		// Version mapping: original name -> version
+		const versionMapping = new Map();
 
-	// Step 1: Build name mapping, version mapping and backup originals
-	console.log('Step 1: Building package name mapping...');
-	for (const pkgPath of packageJsons) {
-		const content = readFileSync(pkgPath, 'utf-8');
-		const pkg = JSON.parse(content);
+		// Step 1: Build name mapping, version mapping and backup originals
+		console.log('Step 1: Building package name mapping...');
+		for (const pkgPath of packageJsons) {
+			const content = readFileSync(pkgPath, 'utf-8');
+			const pkg = JSON.parse(content);
 
-		if (pkg.private) continue;
-		if (!pkg.name) continue;
+			if (pkg.private) continue;
+			if (!pkg.name) continue;
 
-		// Skip template files with placeholders
-		if (pkg.name.includes('{{') || pkg.name.includes('}}')) {
-			continue;
-		}
-
-		originalContents.set(pkgPath, content);
-
-		const originalName = pkg.name;
-		const newName = transformName(originalName);
-		nameMapping.set(originalName, newName);
-		versionMapping.set(originalName, pkg.version || '1.0.0');
-
-		console.log(`  ${originalName} -> ${newName}`);
-	}
-
-	// Step 2: Update all package.json files
-	console.log('\nStep 2: Updating package.json files...');
-	for (const [pkgPath, originalContent] of originalContents) {
-		const pkg = JSON.parse(originalContent);
-
-		// Update name
-		pkg.name = nameMapping.get(pkg.name) || pkg.name;
-
-		// Update dependencies with version mapping
-		pkg.dependencies = updateDependencies(pkg.dependencies, versionMapping);
-		pkg.devDependencies = updateDependencies(pkg.devDependencies, versionMapping);
-		pkg.peerDependencies = updateDependencies(pkg.peerDependencies, versionMapping);
-
-		writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-	}
-
-	// Step 3: Publish each package individually (continue on failure)
-	console.log('\nStep 3: Publishing to npm...\n');
-	let successCount = 0;
-	let skipCount = 0;
-	let failCount = 0;
-
-	for (const [pkgPath] of originalContents) {
-		const pkgDir = dirname(pkgPath);
-		const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-		const pkgName = pkg.name;
-
-		try {
-			// Check if version already exists
-			if (!force && checkVersionExists(pkgName, pkg.version)) {
-				console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
-				skipCount++;
+			// Skip template files with placeholders
+			if (pkg.name.includes('{{') || pkg.name.includes('}}')) {
 				continue;
 			}
 
-			// Build publish command with optional OTP
-			let publishCmd = 'npm publish --access public';
-			if (force) {
-				publishCmd += ' --force';
-			}
-			if (otp) {
-				publishCmd += ` --otp=${otp}`;
-			}
+			originalContents.set(pkgPath, content);
 
-			execSync(publishCmd, {
-				cwd: pkgDir,
-				stdio: 'pipe',
-			});
-			console.log(`  ✅ ${pkgName}@${pkg.version}`);
-			successCount++;
-		} catch (error) {
-			const stderr = error.stderr?.toString() || '';
-			const stdout = error.stdout?.toString() || '';
-			const fullError = stderr || stdout || error.message || '';
-			console.log(fullError);
-			
-			// Check for 2FA OTP requirement
-			if (fullError.includes('EOTP') || fullError.includes('one-time password')) {
-				console.log(`  ❌ ${pkgName}@${pkg.version} - 2FA OTP required`);
-				console.log(`     Run with --otp=CODE or set NPM_OTP environment variable`);
-				if (failCount === 0) {
-					console.log(`\n     Example: pnpm run publish:npm -- --otp=123456`);
+			const originalName = pkg.name;
+			const newName = transformName(originalName);
+			nameMapping.set(originalName, newName);
+			versionMapping.set(originalName, pkg.version || '1.0.0');
+
+			console.log(`  ${originalName} -> ${newName}`);
+		}
+
+		// Step 2: Update all package.json files
+		console.log('\nStep 2: Updating package.json files...');
+		for (const [pkgPath, originalContent] of originalContents) {
+			const pkg = JSON.parse(originalContent);
+
+			// Update name
+			pkg.name = nameMapping.get(pkg.name) || pkg.name;
+
+			// Update dependencies with version mapping
+			pkg.dependencies = updateDependencies(pkg.dependencies, versionMapping);
+			pkg.devDependencies = updateDependencies(pkg.devDependencies, versionMapping);
+			pkg.peerDependencies = updateDependencies(pkg.peerDependencies, versionMapping);
+
+			writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+		}
+
+		// Step 3: Publish each package individually (continue on failure)
+		console.log('\nStep 3: Publishing to npm...\n');
+		let successCount = 0;
+		let skipCount = 0;
+		let failCount = 0;
+
+		for (const [pkgPath] of originalContents) {
+			const pkgDir = dirname(pkgPath);
+			const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+			const pkgName = pkg.name;
+
+			try {
+				// Check if version already exists
+				if (!force && checkVersionExists(pkgName, pkg.version)) {
+					console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
+					skipCount++;
+					continue;
 				}
-				failCount++;
-			}
-			// Check for common "already published" patterns
-			else if (
-				fullError.includes('previously published') ||
-				(fullError.includes('E403') && !fullError.includes('EOTP')) ||
-				fullError.includes('You cannot publish over the previously published versions') ||
-				fullError.includes('cannot publish over existing version')
-			) {
-				console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
-				skipCount++;
-			} else {
-				// Show more detailed error - get the actual error line
-				const errorLines = fullError
-					.split('\n')
-					.filter(
-						(line) =>
-							line.includes('npm error') ||
-							line.includes('error code') ||
-							line.includes('403') ||
-							line.includes('401') ||
-							line.includes('404') ||
-							line.trim().length > 0,
-					);
-				const errorMsg = errorLines.slice(0, 3).join(' | ') || fullError.slice(0, 200);
-				console.log(`  ❌ ${pkgName}@${pkg.version} - ${errorMsg}`);
-				failCount++;
+
+				// Build publish command with optional OTP
+				let publishCmd = 'npm publish --access public';
+				if (force) {
+					publishCmd += ' --force';
+				}
+				if (otp) {
+					publishCmd += ` --otp=\${otp}`;
+				}
+
+				execSync(publishCmd, {
+					cwd: pkgDir,
+					stdio: 'pipe',
+				});
+				console.log(`  ✅ ${pkgName}@${pkg.version}`);
+				successCount++;
+			} catch (error) {
+				const stderr = error.stderr?.toString() || '';
+				const stdout = error.stdout?.toString() || '';
+				const fullError = stderr || stdout || error.message || '';
+				
+				// Check for 2FA OTP requirement
+				if (fullError.includes('EOTP') || fullError.includes('one-time password')) {
+					console.log(fullError);
+					console.log(`  ❌ ${pkgName}@${pkg.version} - 2FA OTP required`);
+					console.log(`     Run with --otp=CODE or set NPM_OTP environment variable`);
+					if (failCount === 0) {
+						console.log(`\n     Example: pnpm run publish:npm -- --otp=123456`);
+					}
+					failCount++;
+				}
+				// Check for common "already published" patterns
+				else if (
+					fullError.includes('previously published') ||
+					(fullError.includes('E403') && !fullError.includes('EOTP')) ||
+					fullError.includes('You cannot publish over the previously published versions') ||
+					fullError.includes('cannot publish over existing version')
+				) {
+					console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
+					skipCount++;
+				} else {
+					console.log(fullError);
+					// Show more detailed error - get the actual error line
+					const errorLines = fullError
+						.split('\n')
+						.filter(
+							(line) =>
+								line.includes('npm error') ||
+								line.includes('error code') ||
+								line.includes('403') ||
+								line.includes('401') ||
+								line.includes('404') ||
+								line.trim().length > 0,
+						);
+					const errorMsg = errorLines.slice(0, 3).join(' | ') || fullError.slice(0, 200);
+					console.log(`  ❌ ${pkgName}@${pkg.version} - ${errorMsg}`);
+					failCount++;
+				}
 			}
 		}
+
+		console.log(
+			`\n📊 Results: ${successCount} published, ${skipCount} skipped, ${failCount} failed\n`,
+		);
+	} finally {
+		// Step 4: Restore original files
+		restoreFiles();
 	}
-
-	console.log(
-		`\n📊 Results: ${successCount} published, ${skipCount} skipped, ${failCount} failed\n`,
-	);
-
-	// Step 4: Restore original files
-	console.log('Step 4: Restoring original package.json files...');
-	for (const [pkgPath, originalContent] of originalContents) {
-		writeFileSync(pkgPath, originalContent);
-	}
-
-	console.log('✅ Original files restored.\n');
 }
 
 main().catch(console.error);
