@@ -6,6 +6,7 @@
  * Usage: node scripts/publish-npm.mjs [scope] [--otp=CODE]
  * Example: node scripts/publish-npm.mjs @atom8n
  * Example: node scripts/publish-npm.mjs @atom8n --otp=123456
+ * Example: node scripts/publish-npm.mjs @atom8n --force --bump-patch=10
  *
  * Environment variables:
  * - NPM_OTP: One-time password for 2FA (alternative to --otp flag)
@@ -26,6 +27,8 @@ const scope = args.find((arg) => !arg.startsWith('--')) || '@atom8n';
 const otpArg = args.find((arg) => arg.startsWith('--otp='));
 const otp = otpArg ? otpArg.split('=')[1] : process.env.NPM_OTP || null;
 const force = args.includes('--force');
+const bumpPatchArg = args.find((arg) => arg.startsWith('--bump-patch='));
+const bumpPatchDelta = bumpPatchArg ? parseInt(bumpPatchArg.split('=')[1], 10) : 1;
 
 // Package name mappings: original -> scoped
 const nameMapping = new Map();
@@ -68,10 +71,10 @@ function transformName(name) {
 	return name;
 }
 
-function bumpPatch(version) {
+function bumpPatch(version, delta = 1) {
 	const parts = version.split('.');
 	if (parts.length !== 3) return version;
-	const patch = parseInt(parts[2], 10) + 1;
+	const patch = parseInt(parts[2], 10) + delta;
 	return `${parts[0]}.${parts[1]}.${patch}`;
 }
 
@@ -113,11 +116,19 @@ function updateDependencies(deps, versionMapping) {
 			const catalogName = version.replace('catalog:', '');
 			if (catalogName === '') {
 				// Default catalog
-				newVersion = catalogs.default[name] || version;
+				newVersion = catalogs.default[name];
+				if (!newVersion) {
+					throw new Error(`Cloud not resolve catalog dependency: ${name} (catalog:${catalogName})`);
+				}
+				newVersion = newVersion || version;
 			} else {
 				// Named catalog
 				const namedCatalog = catalogs.named[catalogName];
-				newVersion = (namedCatalog && namedCatalog[name]) || version;
+				newVersion = (namedCatalog && namedCatalog[name]);
+				if (!newVersion) {
+					throw new Error(`Cloud not resolve catalog dependency: ${name} (catalog:${catalogName})`);
+				}
+				newVersion = newVersion || version;
 			}
 			
 			// If we resolved it, check if it's a workspace version that needs further resolution
@@ -231,7 +242,7 @@ async function main() {
 			// If force is enabled, check if we need to bump the version
 			if (force && checkVersionExists(newName, version)) {
 				const oldVersion = version;
-				version = bumpPatch(version);
+				version = bumpPatch(version, bumpPatchDelta);
 				console.log(`  🆙 Bumping ${newName} from ${oldVersion} to ${version}`);
 			}
 			versionMapping.set(originalName, version);
@@ -269,6 +280,14 @@ async function main() {
 			const pkgDir = dirname(pkgPath);
 			const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
 			const pkgName = pkg.name;
+
+			// Check if dist/ exists if requested
+			if (!checkDistExists(pkgPath, pkg)) {
+				console.error(`  ❌ ${pkgName} - 'dist' directory missing but required by 'files'`);
+				console.error(`     Run 'pnpm run build' before publishing.`);
+				failCount++;
+				continue;
+			}
 
 			try {
 				// Check if version already exists
@@ -344,6 +363,19 @@ async function main() {
 	} finally {
 		// Step 4: Restore original files
 		restoreFiles();
+	}
+}
+
+// Check if dist directory exists for packages that include it
+function checkDistExists(pkgPath, pkg) {
+	if (!pkg.files || !pkg.files.includes('dist')) return true;
+	
+	const distPath = join(dirname(pkgPath), 'dist');
+	try {
+		const stat = statSync(distPath);
+		return stat.isDirectory();
+	} catch (error) {
+		return false;
 	}
 }
 
