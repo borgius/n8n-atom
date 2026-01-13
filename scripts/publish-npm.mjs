@@ -33,6 +33,9 @@ function findPackageJsons(dir) {
     const fullPath = join(dir, item);
     const stat = statSync(fullPath);
     
+    // Skip template directories
+    if (fullPath.includes('/template/templates/')) continue;
+    
     if (stat.isDirectory()) {
       results.push(...findPackageJsons(fullPath));
     } else if (item === 'package.json') {
@@ -92,6 +95,11 @@ async function main() {
     
     if (pkg.private) continue;
     if (!pkg.name) continue;
+    
+    // Skip template files with placeholders
+    if (pkg.name.includes('{{') || pkg.name.includes('}}')) {
+      continue;
+    }
     
     originalContents.set(pkgPath, content);
     
