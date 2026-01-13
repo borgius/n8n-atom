@@ -25,6 +25,7 @@ const args = process.argv.slice(2);
 const scope = args.find((arg) => !arg.startsWith('--')) || '@atom8n';
 const otpArg = args.find((arg) => arg.startsWith('--otp='));
 const otp = otpArg ? otpArg.split('=')[1] : process.env.NPM_OTP || null;
+const force = args.includes('--force');
 
 // Package name mappings: original -> scoped
 const nameMapping = new Map();
@@ -234,7 +235,7 @@ async function main() {
 
 		try {
 			// Check if version already exists
-			if (checkVersionExists(pkgName, pkg.version)) {
+			if (!force && checkVersionExists(pkgName, pkg.version)) {
 				console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
 				skipCount++;
 				continue;
@@ -242,6 +243,9 @@ async function main() {
 
 			// Build publish command with optional OTP
 			let publishCmd = 'npm publish --access public';
+			if (force) {
+				publishCmd += ' --force';
+			}
 			if (otp) {
 				publishCmd += ` --otp=${otp}`;
 			}
