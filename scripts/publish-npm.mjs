@@ -68,6 +68,13 @@ function transformName(name) {
 	return name;
 }
 
+function bumpPatch(version) {
+	const parts = version.split('.');
+	if (parts.length !== 3) return version;
+	const patch = parseInt(parts[2], 10) + 1;
+	return `${parts[0]}.${parts[1]}.${patch}`;
+}
+
 // Helper to parse simple YAML (subset needed for catalog) since we might not have js-yaml avail in all envs,
 // but actually we do have it in devDependencies. Let's try to allow for basic parsing if needed,
 // but for robustness let's rely on string parsing for this specific structure or just use regex if we want to be zero-dep,
@@ -219,9 +226,17 @@ async function main() {
 			const originalName = pkg.name;
 			const newName = transformName(originalName);
 			nameMapping.set(originalName, newName);
-			versionMapping.set(originalName, pkg.version || '1.0.0');
 
-			console.log(`  ${originalName} -> ${newName}`);
+			let version = pkg.version || '1.0.0';
+			// If force is enabled, check if we need to bump the version
+			if (force && checkVersionExists(newName, version)) {
+				const oldVersion = version;
+				version = bumpPatch(version);
+				console.log(`  🆙 Bumping ${newName} from ${oldVersion} to ${version}`);
+			}
+			versionMapping.set(originalName, version);
+
+			console.log(`  ${originalName} -> ${newName} (${version})`);
 		}
 
 		// Step 2: Update all package.json files
@@ -230,7 +245,11 @@ async function main() {
 			const pkg = JSON.parse(originalContent);
 
 			// Update name
-			pkg.name = nameMapping.get(pkg.name) || pkg.name;
+			const originalName = pkg.name;
+			pkg.name = nameMapping.get(originalName) || pkg.name;
+
+			// Update version
+			pkg.version = versionMapping.get(originalName) || pkg.version;
 
 			// Update dependencies with version mapping
 			pkg.dependencies = updateDependencies(pkg.dependencies, versionMapping);
@@ -253,50 +272,10 @@ async function main() {
 
 			try {
 				// Check if version already exists
-				const exists = checkVersionExists(pkgName, pkg.version);
-				if (exists) {
-					if (force) {
-						console.log(`  🗑️  Unpublishing ${pkgName}@${pkg.version}...`);
-						try {
-							let unpublishCmd = `npm unpublish ${pkgName}@${pkg.version} --force`;
-							if (otp) {
-								unpublishCmd += ` --otp=${otp}`;
-							}
-							execSync(unpublishCmd, {
-								cwd: pkgDir,
-								stdio: 'pipe',
-							});
-							console.log(`  ✅ Unpublished ${pkgName}@${pkg.version}`);
-						} catch (unpublishError) {
-							const stderr = unpublishError.stderr?.toString() || '';
-							const stdout = unpublishError.stdout?.toString() || '';
-							const fullOutput = stderr + '\n' + stdout;
-							
-							// Filter out warnings and find the actual error
-							const errorLines = fullOutput
-								.split('\n')
-								.filter(line => 
-									line.trim().length > 0 && 
-									!line.includes('npm warn') && 
-									!line.includes('Recommended protections disabled')
-								);
-
-							if (errorLines.length > 0 && !fullOutput.includes('404')) {
-								const errorText = errorLines.join(' ');
-								if (errorText.includes('OTP') || errorText.includes('TFA') || errorText.includes('one-time password')) {
-									console.log(`  ❌ Failed to unpublish: 2FA OTP required.`);
-									console.log(`     Please run with --otp=CODE or set NPM_OTP environment variable.`);
-								} else {
-									console.log(`  ⚠️  Failed to unpublish:`);
-									console.log(errorLines.slice(0, 5).map(l => `     ${l}`).join('\n'));
-								}
-							}
-						}
-					} else {
-						console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
-						skipCount++;
-						continue;
-					}
+				if (!force && checkVersionExists(pkgName, pkg.version)) {
+					console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
+					skipCount++;
+					continue;
 				}
 
 				// Build publish command with optional OTP
