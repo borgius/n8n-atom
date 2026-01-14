@@ -6,7 +6,7 @@
  * Usage: node scripts/publish-npm.mjs [scope] [--otp=CODE]
  * Example: node scripts/publish-npm.mjs @atom8n
  * Example: node scripts/publish-npm.mjs @atom8n --otp=123456
- * Example: node scripts/publish-npm.mjs @atom8n --force --bump-patch=10
+ * Example: node scripts/publish-npm.mjs @atom8n --otp=123456
  *
  * Environment variables:
  * - NPM_OTP: One-time password for 2FA (alternative to --otp flag)
@@ -26,9 +26,7 @@ const args = process.argv.slice(2);
 const scope = args.find((arg) => !arg.startsWith('--')) || '@atom8n';
 const otpArg = args.find((arg) => arg.startsWith('--otp='));
 const otp = otpArg ? otpArg.split('=')[1] : process.env.NPM_OTP || null;
-const force = args.includes('--force');
-const bumpPatchArg = args.find((arg) => arg.startsWith('--bump-patch='));
-const bumpPatchDelta = bumpPatchArg ? parseInt(bumpPatchArg.split('=')[1], 10) : 1;
+
 
 // Package name mappings: original -> scoped
 const nameMapping = new Map();
@@ -71,12 +69,7 @@ function transformName(name) {
 	return name;
 }
 
-function bumpPatch(version, delta = 1) {
-	const parts = version.split('.');
-	if (parts.length !== 3) return version;
-	const patch = parseInt(parts[2], 10) + delta;
-	return `${parts[0]}.${parts[1]}.${patch}`;
-}
+
 
 // Helper to parse simple YAML (subset needed for catalog) since we might not have js-yaml avail in all envs,
 // but actually we do have it in devDependencies. Let's try to allow for basic parsing if needed,
@@ -162,8 +155,7 @@ function checkVersionExists(name, version) {
 }
 
 // Check for uncommitted changes in package.json files
-function checkGitClean(force) {
-	if (force) return;
+function checkGitClean() {
 	try {
 		const output = execSync('git status --porcelain', { encoding: 'utf-8' });
 		const modifiedPackageJsons = output
@@ -199,7 +191,7 @@ process.on('SIGINT', () => {
 });
 
 async function main() {
-	checkGitClean(force);
+	checkGitClean();
 
 	console.log(`\n📦 Publishing to npm with scope: ${scope}\n`);
 
@@ -239,12 +231,7 @@ async function main() {
 			nameMapping.set(originalName, newName);
 
 			let version = pkg.version || '1.0.0';
-			// If force is enabled, check if we need to bump the version
-			if (force && checkVersionExists(newName, version)) {
-				const oldVersion = version;
-				version = bumpPatch(version, bumpPatchDelta);
-				console.log(`  🆙 Bumping ${newName} from ${oldVersion} to ${version}`);
-			}
+
 			versionMapping.set(originalName, version);
 
 			console.log(`  ${originalName} -> ${newName} (${version})`);
@@ -291,7 +278,7 @@ async function main() {
 
 			try {
 				// Check if version already exists
-				if (!force && checkVersionExists(pkgName, pkg.version)) {
+				if (checkVersionExists(pkgName, pkg.version)) {
 					console.log(`  ⏭️  ${pkgName}@${pkg.version} (already published)`);
 					skipCount++;
 					continue;
@@ -299,9 +286,6 @@ async function main() {
 
 				// Build publish command with optional OTP
 				let publishCmd = 'npm publish --access public';
-				if (force) {
-					publishCmd += ' --force';
-				}
 				if (otp) {
 					publishCmd += ` --otp=\${otp}`;
 				}
