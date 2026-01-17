@@ -43,6 +43,7 @@ I spent 2 days "vibe coding" with Antigravity to build the MVP. The experience w
 - "This feels like you materialized the vision of turning VS Code into a true AI cockpit"
 <img alt="image" src="https://github.com/user-attachments/assets/ee9d5d1c-8c62-475b-bf72-f677c061e25c" />
 <img alt="image" src="https://github.com/user-attachments/assets/6f334782-ed50-40d6-9a78-43724dba0e85" />
+<img alt="image" src="https://github.com/user-attachments/assets/c6d82899-9f05-4d56-9e5e-52f01aa58ef7" />
 
 
   
