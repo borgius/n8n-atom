@@ -36,6 +36,15 @@ I spent 2 days "vibe coding" with Antigravity to build the MVP. The experience w
 - Implemented a file-based workflow system (.n8n format)
 - Created the world's first extension to manage n8n workflows in an editor
 
+### Testimonials (for reference)
+- "I've been waiting a long time for an extension like this, I think it's awesome"
+- "Being able to version control workflows like regular code changes everything"
+- "The workflow is incredibly powerful when used with other tools like Kanban and Thor Client"
+- "This feels like you materialized the vision of turning VS Code into a true AI cockpit"
+<img alt="image" src="https://github.com/user-attachments/assets/ee9d5d1c-8c62-475b-bf72-f677c061e25c" />
+
+
+  
 
 
 ![Banner image](https://user-images.githubusercontent.com/10284570/173569848-c624317f-42b1-45a6-ab09-f0ea3c247648.png)
