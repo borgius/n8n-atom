@@ -41,6 +41,7 @@ I spent 2 days "vibe coding" with Antigravity to build the MVP. The experience w
 - "Being able to version control workflows like regular code changes everything"
 - "The workflow is incredibly powerful when used with other tools like Kanban and Thor Client"
 - "This feels like you materialized the vision of turning VS Code into a true AI cockpit"
+<img alt="image" src="https://github.com/user-attachments/assets/5ca3bb39-248f-407a-b5c5-6a09a261bc24" />
 <img alt="image" src="https://github.com/user-attachments/assets/ee9d5d1c-8c62-475b-bf72-f677c061e25c" />
 <img alt="image" src="https://github.com/user-attachments/assets/6f334782-ed50-40d6-9a78-43724dba0e85" />
 <img alt="image" src="https://github.com/user-attachments/assets/c6d82899-9f05-4d56-9e5e-52f01aa58ef7" />
