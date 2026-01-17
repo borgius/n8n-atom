@@ -30,7 +30,7 @@ As a developer working frequently with n8n workflows, I realized a core problem:
 I wanted to bring workflows into the file-based world so they could be committed to GitHub and version controlled like regular code. This would also allow developers to leverage AI coding assistants to efficiently build and iterate on workflows.
 
 **The journey:**
-I spent 2 days "vibe coding" with Antigravity to build this. The experience was incredible - I could input 100% in natural language and build workflows seamlessly, just like coding. In those 2 days, I:
+I spent 2 days "vibe coding" with Antigravity to build the MVP. The experience was incredible, I could input 100% in natural language and build workflows seamlessly, just like coding. In those 2 days, I:
 - Forked the front-end from the official n8n repository
 - Integrated n8n UI into a VSCode extension
 - Implemented a file-based workflow system (.n8n format)
