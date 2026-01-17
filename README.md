@@ -13,9 +13,28 @@ docker run --pull=always -it --rm --name n8n-atom -p 5888:5888 -v n8n_data:/home
 
 <img width="2718" height="1618" alt="image" src="https://github.com/user-attachments/assets/8cc10306-e349-4cac-b5b7-e04cc9695ca0" />
 <img width="2100" height="1358" alt="image" src="https://github.com/user-attachments/assets/6f53d124-27e8-45e2-935f-3933ad42ff12" />
-
-
 <img width="2114" height="1496" alt="image" src="https://github.com/user-attachments/assets/c48534d1-742f-4981-b5eb-557f610015d2" />
+
+
+## Story behind
+As a developer working frequently with n8n workflows, I realized a core problem: **workflows couldn't be managed like code**.
+
+**The problems I faced:**
+- Workflows were stored in n8n's database, making version control impossible
+- Every change required manual UI work, which was time-consuming and error-prone
+- No way to review changes before deploying
+- Couldn't leverage AI coding agents to build workflows automatically
+- Had to switch between multiple tools, breaking my development flow
+
+**The inspiration:**
+I wanted to bring workflows into the file-based world so they could be committed to GitHub and version controlled like regular code. This would also allow developers to leverage AI coding assistants to efficiently build and iterate on workflows.
+
+**The journey:**
+I spent 2 days "vibe coding" with Antigravity to build this. The experience was incredible - I could input 100% in natural language and build workflows seamlessly, just like coding. In those 2 days, I:
+- Forked the front-end from the official n8n repository
+- Integrated n8n UI into a VSCode extension
+- Implemented a file-based workflow system (.n8n format)
+- Created the world's first extension to manage n8n workflows in an editor
 
 
 
