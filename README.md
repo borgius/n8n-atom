@@ -54,6 +54,10 @@ I spent 2 days "vibe coding" with Antigravity to build the MVP. The experience w
 - Implemented a file-based workflow system (.n8n format)
 - Created the world's first extension to manage n8n workflows in an editor
 
+## Killing feature
+<img alt="image" src="https://github.com/user-attachments/assets/8692fa68-c290-42f5-83ca-64c7b01f85b8" />
+
+
 ## Testimonials (for reference)
 - "I've been waiting a long time for an extension like this, I think it's awesome"
 - "Being able to version control workflows like regular code changes everything"
