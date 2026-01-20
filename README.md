@@ -2,7 +2,7 @@ World's first n8n client that manage workflow collections inside VSCode/Cursor/A
 - Walkthrough video: <a href="https://www.youtube.com/watch?v=1KgItvryNdA" target="_blank">n8n atom + Antigravity: vibe building workflow (feel like vibe coding)</a>
 - Website: <a href="https://atom8n.com/" target="_blank">www.atom8n.com</a>
 - Download the client extension: <a href="https://open-vsx.org/extension/atom8n/n8n-atom-v3" target="_blank">n8n Atom 3.0</a>
-- Support: <a href="https://discord.gg/9MmAhtJFWW" target="_blank">atom8n Community</a>
+- Join Our Community: <a href="https://discord.gg/9MmAhtJFWW" target="_blank">Discord</a>, <a href="https://web.facebook.com/groups/atom8n" target="_blank">Facebook</a>
 - Nodejs installation:
 ```
 npx -y @atom8n/n8n@latest
