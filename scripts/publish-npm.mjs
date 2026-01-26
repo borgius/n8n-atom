@@ -14,10 +14,11 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync, mkdtempSync, rmdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { load } from 'js-yaml';
+import { tmpdir } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
@@ -229,6 +230,15 @@ async function main() {
 		console.log(`ℹ️  Note: If 2FA is enabled, use --otp=CODE, set NPM_OTP, or use NPM_TOKEN\n`);
 	}
 
+	// Create temporary .npmrc file if NPM_TOKEN is set
+	let tempNpmrcPath = null;
+	if (npmToken) {
+		const tempDir = mkdtempSync(join(tmpdir(), 'npm-publish-'));
+		tempNpmrcPath = join(tempDir, '.npmrc');
+		writeFileSync(tempNpmrcPath, `//registry.npmjs.org/:_authToken=${npmToken}\n`);
+		console.log(`📝 Created temporary .npmrc at ${tempNpmrcPath}\n`);
+	}
+
 	try {
 		const packagesDir = join(rootDir, 'packages');
 		const packageJsons = findPackageJsons(packagesDir);
@@ -318,16 +328,14 @@ async function main() {
 					publishCmd += ` --otp=\${otp}`;
 				}
 
-				// Prepare environment for npm command
-				const npmEnv = { ...process.env };
-				if (npmToken) {
-					npmEnv.NPM_TOKEN = npmToken;
+				// Add userconfig to use temporary .npmrc if NPM_TOKEN is set
+				if (tempNpmrcPath) {
+					publishCmd += ` --userconfig ${tempNpmrcPath}`;
 				}
 
 				execSync(publishCmd, {
 					cwd: pkgDir,
 					stdio: 'pipe',
-					env: npmEnv,
 				});
 				console.log(`  ✅ ${pkgName}@${pkg.version}`);
 				successCount++;
@@ -384,6 +392,18 @@ async function main() {
 	} finally {
 		// Step 4: Restore original files
 		restoreFiles();
+
+		// Clean up temporary .npmrc file
+		if (tempNpmrcPath) {
+			try {
+				unlinkSync(tempNpmrcPath);
+				const tempDir = dirname(tempNpmrcPath);
+				rmdirSync(tempDir);
+				console.log('🧹 Cleaned up temporary .npmrc file\n');
+			} catch (error) {
+				console.warn(`⚠️  Warning: Failed to clean up temporary .npmrc: ${error.message}`);
+			}
+		}
 	}
 }
 
