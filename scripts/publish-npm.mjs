@@ -10,10 +10,11 @@
  *
  * Environment variables:
  * - NPM_OTP: One-time password for 2FA (alternative to --otp flag)
+ * - NPM_TOKEN: npm authentication token (bypasses 2FA if token has automation access)
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { load } from 'js-yaml';
@@ -21,11 +22,36 @@ import { load } from 'js-yaml';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 
+// Load .env file if it exists
+function loadEnvFile() {
+	const envPath = join(rootDir, '.env');
+	if (existsSync(envPath)) {
+		const content = readFileSync(envPath, 'utf-8');
+		content.split('\n').forEach((line) => {
+			const trimmed = line.trim();
+			if (trimmed && !trimmed.startsWith('#')) {
+				const [key, ...valueParts] = trimmed.split('=');
+				if (key && valueParts.length > 0) {
+					const value = valueParts.join('=').trim();
+					// Only set if not already in environment
+					if (process.env[key] === undefined) {
+						process.env[key] = value;
+					}
+				}
+			}
+		});
+	}
+}
+
+// Load environment variables
+loadEnvFile();
+
 // Parse arguments
 const args = process.argv.slice(2);
 const scope = args.find((arg) => !arg.startsWith('--')) || '@atom8n';
 const otpArg = args.find((arg) => arg.startsWith('--otp='));
 const otp = otpArg ? otpArg.split('=')[1] : process.env.NPM_OTP || null;
+const npmToken = process.env.NPM_TOKEN || null;
 
 
 // Package name mappings: original -> scoped
@@ -195,10 +221,12 @@ async function main() {
 
 	console.log(`\n📦 Publishing to npm with scope: ${scope}\n`);
 
-	if (otp) {
+	if (npmToken) {
+		console.log(`🔑 Using NPM_TOKEN for authentication (2FA bypass)\n`);
+	} else if (otp) {
 		console.log(`🔐 Using 2FA OTP for authentication\n`);
 	} else {
-		console.log(`ℹ️  Note: If 2FA is enabled, use --otp=CODE or set NPM_OTP env var\n`);
+		console.log(`ℹ️  Note: If 2FA is enabled, use --otp=CODE, set NPM_OTP, or use NPM_TOKEN\n`);
 	}
 
 	try {
@@ -290,9 +318,16 @@ async function main() {
 					publishCmd += ` --otp=\${otp}`;
 				}
 
+				// Prepare environment for npm command
+				const npmEnv = { ...process.env };
+				if (npmToken) {
+					npmEnv.NPM_TOKEN = npmToken;
+				}
+
 				execSync(publishCmd, {
 					cwd: pkgDir,
 					stdio: 'pipe',
+					env: npmEnv,
 				});
 				console.log(`  ✅ ${pkgName}@${pkg.version}`);
 				successCount++;
@@ -305,9 +340,11 @@ async function main() {
 				if (fullError.includes('EOTP') || fullError.includes('one-time password')) {
 					console.log(fullError);
 					console.log(`  ❌ ${pkgName}@${pkg.version} - 2FA OTP required`);
-					console.log(`     Run with --otp=CODE or set NPM_OTP environment variable`);
+					console.log(`     Run with --otp=CODE, set NPM_OTP, or use NPM_TOKEN (with automation access)`);
 					if (failCount === 0) {
-						console.log(`\n     Example: pnpm run publish:npm -- --otp=123456`);
+						console.log(`\n     Examples:`);
+						console.log(`       pnpm run publish:npm -- --otp=123456`);
+						console.log(`       NPM_TOKEN=your_token node scripts/publish-npm.mjs @atom8nl`);
 					}
 					failCount++;
 				}
