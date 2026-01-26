@@ -70,9 +70,17 @@ export class LocalAdminService {
 				// Set a default password if not set (for shell users)
 				existingOwner.password ??= await this.passwordUtility.hash('admin');
 
+				// Ensure role is set to GLOBAL_OWNER_ROLE
+				if (!existingOwner.role || existingOwner.role.slug !== GLOBAL_OWNER_ROLE.slug) {
+					existingOwner.role = GLOBAL_OWNER_ROLE;
+					this.logger.debug(
+						`Setting role to ${GLOBAL_OWNER_ROLE.slug} for user ${existingOwner.email}`,
+					);
+				}
+
 				await this.userRepository.save(existingOwner);
 				this.logger.info(
-					`Updated existing owner user to use local admin email: ${localAdminEmail}`,
+					`Updated existing owner user to use local admin email: ${localAdminEmail}, role: ${existingOwner.role?.slug}`,
 				);
 				// Ensure personal project exists for this user
 				await this.ensurePersonalProjectExists(existingOwner);

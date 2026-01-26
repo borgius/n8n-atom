@@ -60,6 +60,9 @@ export class AuthController {
 				});
 
 				if (localAdmin) {
+					this.logger.debug(
+						`Auto-login with local admin user: ${localAdmin.email}, role: ${localAdmin.role?.slug}`,
+					);
 					autoLoginUser = localAdmin;
 				}
 			} catch (error) {
@@ -81,6 +84,9 @@ export class AuthController {
 				});
 
 				if (owner) {
+					this.logger.debug(
+						`Auto-login fallback with owner user: ${owner.email}, role: ${owner.role?.slug}`,
+					);
 					autoLoginUser = owner;
 				}
 			} catch (error) {
@@ -97,11 +103,15 @@ export class AuthController {
 				user: autoLoginUser,
 				authenticationMethod: 'email',
 			});
-			return await this.userService.toPublic(autoLoginUser, {
+			const publicUser = await this.userService.toPublic(autoLoginUser, {
 				posthog: this.postHog,
 				withScopes: true,
 				mfaAuthenticated: false,
 			});
+			this.logger.debug(
+				`Returning public user for auto-login: ${publicUser.email}, role: ${publicUser.role}, isOwner: ${publicUser.isOwner}`,
+			);
+			return publicUser;
 		}
 
 		const { emailOrLdapLoginId, password, mfaCode, mfaRecoveryCode } = payload;

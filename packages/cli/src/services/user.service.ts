@@ -80,12 +80,19 @@ export class UserService {
 
 		const providerType = authIdentities?.[0]?.providerType;
 
+		const roleSlug = role?.slug;
+		const isOwner = user.role.slug === 'global:owner';
+
 		let publicUser: PublicUser = {
 			...rest,
-			role: role?.slug,
+			role: roleSlug,
 			signInType: providerType ?? 'email',
-			isOwner: user.role.slug === 'global:owner',
+			isOwner,
 		};
+
+		this.logger.debug(
+			`UserService.toPublic: user=${user.email}, roleSlug=${roleSlug}, isOwner=${isOwner}`,
+		);
 
 		if (options?.withInviteUrl && !options?.inviterId) {
 			throw new UnexpectedError('Inviter ID is required to generate invite URL');
