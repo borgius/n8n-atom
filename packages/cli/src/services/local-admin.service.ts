@@ -49,7 +49,19 @@ export class LocalAdminService {
 			});
 
 			if (localAdmin) {
-				this.logger.info(`Local admin user ${localAdminEmail} already exists`);
+				this.logger.info(
+					`Local admin user ${localAdminEmail} already exists with role: ${localAdmin.role?.slug}`,
+				);
+
+				// Ensure role is set to GLOBAL_OWNER_ROLE
+				if (!localAdmin.role || localAdmin.role.slug !== GLOBAL_OWNER_ROLE.slug) {
+					this.logger.info(
+						`Updating role from $c{localAdmin.role?.slug} to ${GLOBAL_OWNER_ROLE.slug} for user ${localAdminEmail}`,
+					);
+					localAdmin.role = GLOBAL_OWNER_ROLE;
+					await this.userRepository.save(localAdmin);
+				}
+
 				// Ensure personal project exists for this user
 				await this.ensurePersonalProjectExists(localAdmin);
 				return;
