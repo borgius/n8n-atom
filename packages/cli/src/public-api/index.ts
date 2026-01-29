@@ -126,5 +126,10 @@ export const loadPublicApiVersions = async (
 };
 
 export function isApiEnabled(): boolean {
-	return !Container.get(GlobalConfig).publicApi.disabled && !Container.get(License).isAPIDisabled();
+	const globalConfig = Container.get(GlobalConfig);
+	// In N8N_LOCAL mode, API should be enabled unless explicitly disabled via env var
+	if (globalConfig.license.isLocal) {
+		return !globalConfig.publicApi.disabled;
+	}
+	return !globalConfig.publicApi.disabled && !Container.get(License).isAPIDisabled();
 }
