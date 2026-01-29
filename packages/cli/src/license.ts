@@ -351,6 +351,10 @@ export class License implements LicenseProvider {
 
 	/** @deprecated Use `LicenseState.isAPIDisabled` instead. */
 	isAPIDisabled() {
+		// In N8N_LOCAL mode, API should be enabled
+		if (this.globalConfig.license.isLocal) {
+			return false;
+		}
 		return this.isLicensed(LICENSE_FEATURES.API_DISABLED);
 	}
 

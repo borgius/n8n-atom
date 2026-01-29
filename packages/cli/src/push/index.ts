@@ -115,7 +115,7 @@ export class Push extends TypedEmitter<PushEvents> {
 		} else if (inProduction) {
 			// Always allow VS Code webview origins (for VS Code extensions)
 			// VS Code webviews use origins like: vscode-webview://...
-			const origin = headers.origin as string | undefined;
+			const origin = headers.origin;
 			const isVSCodeWebview = origin?.startsWith('vscode-webview://');
 
 			if (!isVSCodeWebview) {

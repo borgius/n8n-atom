@@ -1,4 +1,4 @@
-import { inTest, inDevelopment, Logger } from '@n8n/backend-common';
+import { inTest, Logger } from '@n8n/backend-common';
 import { GlobalConfig } from '@n8n/config';
 import { DbConnection } from '@n8n/db';
 import { OnShutdown } from '@n8n/decorators';
